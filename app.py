@@ -1,9 +1,10 @@
 """Taiwan Weather Forecast.
 
 Streamlit web application entry point.
-Milestones: M0, M1, M2, M3 — SQLite Persistence
+Milestones: M0, M1, M2, M3, M4 — SQLite Query Layer
 """
 
+from datetime import datetime, timedelta
 import streamlit as st
 from src.cwa_api import (
     CwaApiError,
@@ -19,6 +20,13 @@ from src.database import (
     insert_forecasts,
 )
 from src.parser import CwaParseError, parse_forecast_data
+from src.queries import (
+    CwaQueryError,
+    TZ_TAIPEI,
+    get_latest_snapshot_time,
+    list_regions,
+    query_forecasts,
+)
 
 st.set_page_config(
     page_title="Taiwan Weather Forecast",
@@ -107,3 +115,93 @@ if st.button("💾 儲存預報至 SQLite (Save Snapshot to SQLite)", disabled=n
 
     except CwaDatabaseError as exc:
         st.error(f"❌ **資料庫錯誤**: {exc}")
+
+st.markdown("---")
+st.subheader("🔍 資料查詢驗證 (M4 Query Layer)")
+
+try:
+    # Requirement 1: Resolve the latest snapshot only once per render/query flow
+    latest_snapshot = get_latest_snapshot_time(db_file_path)
+
+    if latest_snapshot is None:
+        st.info("💡 目前資料庫中尚無預報快照。請先點擊上方「儲存預報至 SQLite」以寫入快照。")
+    else:
+        # Pass exact explicit latest_snapshot to list_regions
+        available_regions = list_regions(db_file_path, snapshot_at=latest_snapshot)
+
+        if not available_regions:
+            st.info("💡 目前快照中無任何縣市資料。")
+        else:
+            col_info1, col_info2 = st.columns(2)
+            with col_info1:
+                st.metric(
+                    "最新快照時間 (UTC)",
+                    latest_snapshot.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                )
+            with col_info2:
+                latest_taipei = latest_snapshot.astimezone(TZ_TAIPEI)
+                st.metric(
+                    "最新快照時間 (臺灣時間)",
+                    latest_taipei.strftime("%Y-%m-%d %H:%M:%S +08:00"),
+                )
+
+            selected_region = st.selectbox(
+                "選擇欲查詢縣市 (Region):",
+                options=available_regions,
+            )
+
+            # Optional date / date-range filter
+            enable_date_filter = st.checkbox(
+                "啟用日期區間過濾 (Optional Date Range Filter)",
+                value=False,
+            )
+
+            range_start_dt = None
+            range_end_dt = None
+
+            if enable_date_filter:
+                date_selection = st.date_input(
+                    "選擇預報日期區間 (Date Range):",
+                    value=(latest_taipei.date(), latest_taipei.date() + timedelta(days=2)),
+                )
+                # Requirement 2: Convert date selections to timezone-aware UTC+08:00 boundaries
+                if isinstance(date_selection, (tuple, list)):
+                    if len(date_selection) == 2:
+                        start_d, end_d = date_selection
+                        range_start_dt = datetime(
+                            start_d.year, start_d.month, start_d.day, 0, 0, 0, tzinfo=TZ_TAIPEI
+                        )
+                        range_end_dt = datetime(
+                            end_d.year, end_d.month, end_d.day, 0, 0, 0, tzinfo=TZ_TAIPEI
+                        ) + timedelta(days=1)
+                    elif len(date_selection) == 1:
+                        single_d = date_selection[0]
+                        range_start_dt = datetime(
+                            single_d.year, single_d.month, single_d.day, 0, 0, 0, tzinfo=TZ_TAIPEI
+                        )
+                        range_end_dt = range_start_dt + timedelta(days=1)
+                elif hasattr(date_selection, "year"):
+                    range_start_dt = datetime(
+                        date_selection.year, date_selection.month, date_selection.day, 0, 0, 0, tzinfo=TZ_TAIPEI
+                    )
+                    range_end_dt = range_start_dt + timedelta(days=1)
+
+            # Requirement 1: Pass exact explicit latest_snapshot to query_forecasts
+            query_res_df = query_forecasts(
+                db_path=db_file_path,
+                region=selected_region,
+                snapshot_at=latest_snapshot,
+                range_start=range_start_dt,
+                range_end=range_end_dt,
+            )
+
+            st.metric("符合條件之預報筆數 (Matching Rows)", len(query_res_df))
+            if not query_res_df.empty:
+                st.markdown("##### 📋 查詢結果預覽 (前 5 筆)")
+                st.dataframe(query_res_df.head(5), width="stretch")
+            else:
+                st.info("ℹ️ 該條件下無符合的預報紀錄。")
+
+except CwaQueryError:
+    # Requirement 4: Catch CwaQueryError and show friendly instruction without traceback
+    st.info("💡 No local forecast database is available. Fetch and save a snapshot in M3 first.")
