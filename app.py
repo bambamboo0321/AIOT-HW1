@@ -1,7 +1,7 @@
 """Taiwan Weather Forecast.
 
 Streamlit web application entry point.
-Milestone: M1 — CWA API Acquisition
+Milestone: M2 — JSON Parsing and Data Cleaning
 """
 
 import streamlit as st
@@ -12,8 +12,8 @@ from src.cwa_api import (
     CwaRateLimitError,
     CwaServerError,
     fetch_forecast_raw,
-    validate_response_m1,
 )
+from src.parser import CwaParseError, parse_forecast_data
 
 st.set_page_config(
     page_title="Taiwan Weather Forecast",
@@ -31,28 +31,41 @@ st.write(
 )
 
 st.markdown("---")
-st.subheader("📡 CWA API 連線檢測 (API Connection Test)")
-st.caption("當前里程碑：**M1 — CWA API 資料擷取**（使用資料集 `F-D0047-091` 全臺 22 縣市一週預報）")
+st.subheader("📊 資料解析與清洗預覽 (M2 Data Cleaning Preview)")
+st.caption("當前里程碑：**M2 — JSON 解析與資料清洗**（資料集 `F-D0047-091` 全臺 22 縣市一週預報）")
 
-if st.button("🚀 測試 CWA API 連線 (Test CWA API Connection)", type="primary"):
-    with st.spinner("正在連線中央氣象署 API..."):
+if st.button("🚀 擷取並解析氣象預報 (Fetch & Parse Forecast)", type="primary"):
+    with st.spinner("正在自中央氣象署 API 擷取並清洗資料..."):
         try:
             raw_data = fetch_forecast_raw("F-D0047-091")
-            summary = validate_response_m1(raw_data)
-            st.success(
-                f"✅ **CWA API 連線成功！**\n\n"
-                f"- **資料集**: `F-D0047-091` (全臺灣各縣市未來 1 週天氣預報)\n"
-                f"- **地區數量**: 取得全台 {summary['location_count']} 個縣市預報資料\n"
-                f"- **範例地區**: {summary['sample_location']}"
-            )
+            df = parse_forecast_data(raw_data)
+
+            st.success("✅ **資料擷取與解析成功！**")
+
+            # M2 規範摘要指標
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("資料維度 (Shape)", f"{df.shape[0]} 列 × {df.shape[1]} 欄")
+                st.metric("涵蓋縣市數 (Unique Regions)", f"{df['region'].nunique()} 個縣市")
+            with col2:
+                earliest_start = df["forecast_start"].min().strftime("%Y-%m-%d %H:%M %Z")
+                latest_end = df["forecast_end"].max().strftime("%Y-%m-%d %H:%M %Z")
+                st.metric("最早預報時間 (Earliest Start)", earliest_start)
+                st.metric("最晚預報時間 (Latest End)", latest_end)
+
+            st.markdown("##### 📋 清洗後資料預覽 (前 5 筆)")
+            st.dataframe(df.head(5), width="stretch")
+
         except CwaAuthError as exc:
             st.error(f"❌ **認證錯誤**: {exc}")
-            st.info("💡 請確認 `.streamlit/secrets.toml` 或環境變數中的 `CWA_API_KEY` 是否正確。")
+            st.info("💡 請確認 `.streamlit/secrets.toml` 中的 `CWA_API_KEY` 是否正確。")
         except CwaRateLimitError as exc:
             st.warning(f"⚠️ **API 存取頻率受限**: {exc}")
         except CwaConnectionError as exc:
-            st.error(f"❌ **連線超時或網路失敗**: {exc}")
+            st.error(f"❌ **連線失敗或逾時**: {exc}")
         except CwaServerError as exc:
-            st.error(f"❌ **中央氣象署伺服器異常**: {exc}")
+            st.error(f"❌ **氣象署伺服器異常**: {exc}")
+        except CwaParseError as exc:
+            st.error(f"❌ **資料解析失敗**: {exc}")
         except CwaApiError as exc:
-            st.error(f"❌ **資料格式或狀態錯誤**: {exc}")
+            st.error(f"❌ **API 錯誤**: {exc}")

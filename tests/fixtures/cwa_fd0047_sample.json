@@ -1,0 +1,118 @@
+{
+  "success": "true",
+  "result": {
+    "resource_id": "F-D0047-091"
+  },
+  "records": {
+    "Locations": [
+      {
+        "DatasetDescription": "全臺灣各縣市未來1週天氣預報",
+        "LocationsName": "臺灣",
+        "Location": [
+          {
+            "LocationName": "臺北市",
+            "WeatherElement": [
+              {
+                "ElementName": "最高溫度",
+                "Time": [
+                  {
+                    "StartTime": "2026-09-20T18:00:00+08:00",
+                    "EndTime": "2026-09-21T06:00:00+08:00",
+                    "ElementValue": [
+                      {
+                        "MaxTemperature": "28"
+                      }
+                    ]
+                  },
+                  {
+                    "StartTime": "2026-09-21T06:00:00+08:00",
+                    "EndTime": "2026-09-21T18:00:00+08:00",
+                    "ElementValue": [
+                      {
+                        "MaxTemperature": "32"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "ElementName": "最低溫度",
+                "Time": [
+                  {
+                    "StartTime": "2026-09-21T06:00:00+08:00",
+                    "EndTime": "2026-09-21T18:00:00+08:00",
+                    "ElementValue": [
+                      {
+                        "MinTemperature": "25"
+                      }
+                    ]
+                  },
+                  {
+                    "StartTime": "2026-09-20T18:00:00+08:00",
+                    "EndTime": "2026-09-21T06:00:00+08:00",
+                    "ElementValue": [
+                      {
+                        "MinTemperature": "23"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "LocationName": "新北市",
+            "WeatherElement": [
+              {
+                "ElementName": "最低溫度",
+                "Time": [
+                  {
+                    "StartTime": "2026-09-21T06:00:00+08:00",
+                    "EndTime": "2026-09-21T18:00:00+08:00",
+                    "ElementValue": [
+                      {
+                        "MinTemperature": "24"
+                      }
+                    ]
+                  },
+                  {
+                    "StartTime": "2026-09-20T18:00:00+08:00",
+                    "EndTime": "2026-09-21T06:00:00+08:00",
+                    "ElementValue": [
+                      {
+                        "MinTemperature": "22"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "ElementName": "最高溫度",
+                "Time": [
+                  {
+                    "StartTime": "2026-09-20T18:00:00+08:00",
+                    "EndTime": "2026-09-21T06:00:00+08:00",
+                    "ElementValue": [
+                      {
+                        "MaxTemperature": "27"
+                      }
+                    ]
+                  },
+                  {
+                    "StartTime": "2026-09-21T06:00:00+08:00",
+                    "EndTime": "2026-09-21T18:00:00+08:00",
+                    "ElementValue": [
+                      {
+                        "MaxTemperature": "31"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
