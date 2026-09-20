@@ -210,5 +210,6 @@ class TestParseForecastData:
                 ]
             },
         }
-        with pytest.raises(CwaParseError, match="No valid forecast records could be extracted"):
-            parse_forecast_data(empty_payload)
+        with pytest.warns(UserWarning, match="Skipping malformed location"):
+            with pytest.raises(CwaParseError, match="No valid forecast records could be extracted"):
+                parse_forecast_data(empty_payload)

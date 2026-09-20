@@ -22,6 +22,16 @@ DAILY_COLUMNS = [
     "fetched_at",
 ]
 
+MULTI_DAILY_COLUMNS = [
+    "region",
+    "forecast_date",
+    "min_temp",
+    "max_temp",
+    "interval_count",
+    "is_partial",
+    "fetched_at",
+]
+
 
 class CwaTransformationError(Exception):
     """Raised when DataFrame validation or transformation encounters an error."""
@@ -52,6 +62,22 @@ def _create_empty_daily_dataframe() -> pd.DataFrame:
             "fetched_at": pd.Series(dtype="datetime64[ns, UTC]"),
         }
     )
+
+
+def _create_empty_multi_daily_dataframe() -> pd.DataFrame:
+    """Return an empty multi-region daily DataFrame with the documented schema and dtypes."""
+    return pd.DataFrame(
+        {
+            "region": pd.Series(dtype="object"),
+            "forecast_date": pd.Series(dtype="object"),
+            "min_temp": pd.Series(dtype="float64"),
+            "max_temp": pd.Series(dtype="float64"),
+            "interval_count": pd.Series(dtype="int64"),
+            "is_partial": pd.Series(dtype="bool"),
+            "fetched_at": pd.Series(dtype="datetime64[ns, UTC]"),
+        }
+    )
+
 
 
 def aggregate_daily_forecast(df: pd.DataFrame) -> pd.DataFrame:
@@ -168,6 +194,121 @@ def aggregate_daily_forecast(df: pd.DataFrame) -> pd.DataFrame:
     res_df["fetched_at"] = pd.to_datetime(res_df["fetched_at"])
 
     return res_df.sort_values(by="forecast_date").reset_index(drop=True)
+
+
+def aggregate_daily_forecasts_by_region(df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate multi-region raw 12-hour forecast intervals into daily summaries.
+
+    Summarizes raw 12-hour intervals for multiple regions within a single snapshot
+    into one row per (region, local calendar date) tuple.
+
+    Assignment Rule:
+        Each interval is assigned to the Asia/Taipei local calendar date of its `forecast_start`.
+
+    Partial Day Rule:
+        A daily summary row with fewer than 2 intervals is marked `is_partial = True`.
+
+    Duplicate Intervals:
+        If duplicate (region, forecast_start, forecast_end) intervals are encountered,
+        a CwaTransformationError is raised. Silent deduplication is strictly prohibited.
+
+    Args:
+        df: Multi-region raw forecast DataFrame from a single snapshot.
+
+    Returns:
+        pd.DataFrame: Sorted DataFrame with columns:
+            [region, forecast_date, min_temp, max_temp, interval_count, is_partial, fetched_at]
+
+    Raises:
+        CwaTransformationError: If input is invalid, contains mixed snapshots,
+                                duplicate intervals, or timezone-naive timestamps.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise CwaTransformationError("Input must be a pandas DataFrame.")
+
+    if df.empty:
+        return _create_empty_multi_daily_dataframe()
+
+    required_columns = [
+        "region",
+        "forecast_start",
+        "forecast_end",
+        "min_temp",
+        "max_temp",
+        "fetched_at",
+    ]
+    missing = [col for col in required_columns if col not in df.columns]
+    if missing:
+        raise CwaTransformationError(f"DataFrame is missing required columns: {missing}")
+
+    # Enforce single snapshot
+    if df["fetched_at"].nunique() > 1:
+        raise CwaTransformationError(
+            "Input DataFrame contains multiple fetched_at snapshots; mixing snapshots is prohibited."
+        )
+
+    work_df = df.copy()
+
+    # Validate timezone awareness
+    for idx, row in work_df.iterrows():
+        if not _is_timezone_aware(row["forecast_start"]):
+            raise CwaTransformationError(f"Row {idx}: 'forecast_start' is timezone-naive.")
+        if not _is_timezone_aware(row["forecast_end"]):
+            raise CwaTransformationError(f"Row {idx}: 'forecast_end' is timezone-naive.")
+        if not _is_timezone_aware(row["fetched_at"]):
+            raise CwaTransformationError(f"Row {idx}: 'fetched_at' is timezone-naive.")
+
+    # Disallow duplicate intervals
+    if work_df.duplicated(subset=["region", "forecast_start", "forecast_end"]).any():
+        raise CwaTransformationError(
+            "Duplicate (region, forecast_start, forecast_end) intervals detected in forecast data."
+        )
+
+    # Convert forecast_start to Asia/Taipei and extract local calendar date
+    start_series = pd.to_datetime(work_df["forecast_start"])
+    work_df["forecast_date"] = start_series.dt.tz_convert(TZ_TAIPEI).dt.date
+
+    fetched_at_val = work_df["fetched_at"].iloc[0]
+    if hasattr(fetched_at_val, "to_pydatetime"):
+        fetched_at_val = fetched_at_val.to_pydatetime()
+    fetched_at_utc = fetched_at_val.astimezone(timezone.utc)
+
+    # Group by (region, forecast_date)
+    daily_rows: List[dict] = []
+    for (reg, f_date), group in work_df.groupby(["region", "forecast_date"], sort=True):
+        min_series = group["min_temp"].dropna()
+        max_series = group["max_temp"].dropna()
+
+        min_val = float(min_series.min()) if not min_series.empty else np.nan
+        max_val = float(max_series.max()) if not max_series.empty else np.nan
+        cnt = len(group)
+        is_part = bool(cnt < 2)
+
+        daily_rows.append(
+            {
+                "region": reg,
+                "forecast_date": f_date,
+                "min_temp": min_val,
+                "max_temp": max_val,
+                "interval_count": cnt,
+                "is_partial": is_part,
+                "fetched_at": fetched_at_utc,
+            }
+        )
+
+    if not daily_rows:
+        return _create_empty_multi_daily_dataframe()
+
+    res_df = pd.DataFrame(daily_rows, columns=MULTI_DAILY_COLUMNS)
+    res_df["region"] = res_df["region"].astype("object")
+    res_df["min_temp"] = pd.to_numeric(res_df["min_temp"], errors="coerce")
+    res_df["max_temp"] = pd.to_numeric(res_df["max_temp"], errors="coerce")
+    res_df["interval_count"] = res_df["interval_count"].astype("int64")
+    res_df["is_partial"] = res_df["is_partial"].astype("bool")
+    res_df["fetched_at"] = pd.to_datetime(res_df["fetched_at"])
+
+    return res_df.sort_values(by=["region", "forecast_date"]).reset_index(drop=True)
+
 
 
 def filter_daily_forecast(

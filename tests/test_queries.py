@@ -23,8 +23,10 @@ from src.queries import (
     TZ_TAIPEI,
     get_latest_snapshot_time,
     list_regions,
+    query_all_forecasts,
     query_forecasts,
 )
+
 
 FIXTURE_PATH = os.path.join(
     os.path.dirname(__file__), "fixtures", "cwa_fd0047_sample.json"
@@ -361,3 +363,91 @@ class TestDatabaseErrorHandlingAndPathUri:
         assert len(regions) > 0
         df = query_forecasts(db_file, region=regions[0])
         assert not df.empty
+
+
+class TestQueryAllForecasts:
+    """Test suite for query_all_forecasts batch querying."""
+
+    def test_query_all_forecasts_returns_all_regions_single_snapshot(
+        self, multi_snap_db, snap2_df
+    ):
+        """Verify query_all_forecasts retrieves all regions for latest snapshot with only 1 fetched_at."""
+        df = query_all_forecasts(multi_snap_db)
+        assert not df.empty
+        # Verify exactly one fetched_at exists in all-region result
+        assert df["fetched_at"].nunique() == 1
+        expected_fetched = snap2_df["fetched_at"].iloc[0]
+        assert df["fetched_at"].iloc[0] == expected_fetched
+
+        # Verify all regions in snapshot are represented
+        regions = df["region"].unique()
+        assert set(regions) == set(snap2_df["region"].unique())
+
+        # Verify columns and dtypes
+        assert list(df.columns) == QUERY_COLUMNS
+        assert df["region"].dtype == object
+        assert pd.api.types.is_datetime64_any_dtype(df["forecast_start"])
+        assert pd.api.types.is_datetime64_any_dtype(df["forecast_end"])
+        assert pd.api.types.is_float_dtype(df["min_temp"])
+        assert pd.api.types.is_float_dtype(df["max_temp"])
+        assert pd.api.types.is_datetime64_any_dtype(df["fetched_at"])
+
+    def test_query_all_forecasts_explicit_historical_snapshot(
+        self, multi_snap_db, snap1_df
+    ):
+        """Verify passing an explicit historical snapshot timestamp retrieves only that snapshot."""
+        t1 = snap1_df["fetched_at"].iloc[0].to_pydatetime()
+        df = query_all_forecasts(multi_snap_db, snapshot_at=t1)
+        assert not df.empty
+        assert df["fetched_at"].nunique() == 1
+        assert df["fetched_at"].iloc[0] == snap1_df["fetched_at"].iloc[0]
+        assert set(df["region"].unique()) == set(snap1_df["region"].unique())
+
+
+    def test_query_all_forecasts_with_date_range(self, multi_snap_db):
+        """Verify date-range filtering works across all regions in query_all_forecasts."""
+        t_start = datetime(2026, 9, 21, 6, 0, 0, tzinfo=TZ_TAIPEI)
+        t_end = datetime(2026, 9, 22, 18, 0, 0, tzinfo=TZ_TAIPEI)
+
+        df = query_all_forecasts(
+            multi_snap_db,
+            range_start=t_start,
+            range_end=t_end,
+        )
+        assert not df.empty
+        assert df["fetched_at"].nunique() == 1
+        # Check all rows overlap [t_start, t_end)
+        for _, row in df.iterrows():
+            assert row["forecast_end"] > t_start
+            assert row["forecast_start"] < t_end
+
+    def test_query_all_forecasts_empty_database(self, tmp_path):
+        """Verify query_all_forecasts on initialized but empty DB returns empty DataFrame."""
+        db_file = str(tmp_path / "empty.db")
+        initialize_database(db_file)
+        df = query_all_forecasts(db_file)
+        assert df.empty
+        assert list(df.columns) == QUERY_COLUMNS
+
+    def test_query_all_forecasts_invalid_inputs(self, multi_snap_db):
+        """Verify invalid arguments raise CwaQueryError."""
+        # Empty dataset_id
+        with pytest.raises(CwaQueryError, match="dataset_id must be a non-empty string"):
+            query_all_forecasts(multi_snap_db, dataset_id="")
+
+        # Timezone-naive snapshot_at
+        with pytest.raises(CwaQueryError, match="snapshot_at must be a timezone-aware"):
+            query_all_forecasts(multi_snap_db, snapshot_at=datetime(2026, 9, 20, 12, 0))
+
+        # Timezone-naive range_start
+        with pytest.raises(CwaQueryError, match="range_start must be a timezone-aware"):
+            query_all_forecasts(
+                multi_snap_db,
+                range_start=datetime(2026, 9, 21, 0, 0),
+            )
+
+        # Invalid range boundaries
+        t1 = datetime(2026, 9, 22, 0, 0, tzinfo=TZ_TAIPEI)
+        t2 = datetime(2026, 9, 21, 0, 0, tzinfo=TZ_TAIPEI)
+        with pytest.raises(CwaQueryError, match="must be strictly earlier than range_end"):
+            query_all_forecasts(multi_snap_db, range_start=t1, range_end=t2)

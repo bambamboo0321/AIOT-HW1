@@ -5,8 +5,10 @@ Milestones: M0, M1, M2, M3, M4, M5 — User-Facing Weather Dashboard
 """
 
 from datetime import datetime, timedelta
+import folium
 import pandas as pd
 import streamlit as st
+from streamlit_folium import st_folium
 
 from src.cwa_api import (
     CwaApiError,
@@ -21,20 +23,28 @@ from src.database import (
     get_total_forecast_count,
     insert_forecasts,
 )
+from src.map_data import (
+    compute_bounds,
+    get_default_map_date,
+    prepare_map_markers,
+)
 from src.parser import CwaParseError, parse_forecast_data
 from src.queries import (
     CwaQueryError,
     TZ_TAIPEI,
     get_latest_snapshot_time,
     list_regions,
+    query_all_forecasts,
     query_forecasts,
 )
 from src.transformations import (
     CwaTransformationError,
     aggregate_daily_forecast,
+    aggregate_daily_forecasts_by_region,
     filter_daily_forecast,
     filter_raw_forecast_by_dates,
 )
+
 
 st.set_page_config(
     page_title="Taiwan Weather Forecast",
@@ -323,3 +333,110 @@ else:
                         )
                     else:
                         st.info("所選條件下無原始時段紀錄。")
+
+            # ==================================================================
+            # 8. Interactive Taiwan County Weather Map (Milestone M6)
+            # ==================================================================
+            st.markdown("---")
+            st.subheader("🗺️ 全臺縣市天氣預報地圖 (Taiwan Weather Map)")
+            st.caption("呈現全臺 22 縣市在指定日期的氣溫概況，標記顏色依當日最高氣溫等級區分。")
+
+            try:
+                # Query all regions in a single snapshot query using the exact resolved snapshot
+                all_raw_forecasts = query_all_forecasts(
+                    db_path=db_file_path,
+                    snapshot_at=latest_snapshot,
+                )
+                all_daily_forecasts = aggregate_daily_forecasts_by_region(all_raw_forecasts)
+            except (CwaQueryError, CwaTransformationError) as exc:
+                st.error(f"❌ **地圖資料載入錯誤**: {exc}")
+                all_daily_forecasts = pd.DataFrame()
+
+            if all_daily_forecasts.empty:
+                st.warning("⚠️ 目前無全臺縣市地圖預報資料。")
+            else:
+                # Constrain map date options strictly within current dashboard date range
+                valid_map_dates = sorted(
+                    [
+                        d
+                        for d in all_daily_forecasts["forecast_date"].unique()
+                        if filter_start <= d <= filter_end
+                    ]
+                )
+
+                if not valid_map_dates:
+                    st.info("ℹ️ 目前儀表板篩選的日期區間無可供地圖展示的預報日期。")
+                else:
+                    # Default: earliest complete date across all regions, else earliest available
+                    default_map_date = get_default_map_date(
+                        all_daily_forecasts,
+                        valid_dates=valid_map_dates,
+                        expected_regions_count=len(available_regions),
+                    )
+
+                    # Reset stored Streamlit state safely if invalid or outside current range
+                    if (
+                        "map_selected_date" not in st.session_state
+                        or st.session_state["map_selected_date"] not in valid_map_dates
+                    ):
+                        st.session_state["map_selected_date"] = default_map_date
+
+                    selected_map_date = st.selectbox(
+                        "📅 選擇地圖展示日期 (Select Map Date):",
+                        options=valid_map_dates,
+                        index=valid_map_dates.index(st.session_state["map_selected_date"]),
+                        format_func=lambda d: d.strftime("%Y-%m-%d"),
+                        key="map_selected_date",
+                        help="僅列出目前側邊欄所選日期區間內的有效預報日期",
+                    )
+
+                    # Prepare map markers distinguishing missing coordinates and missing forecast data
+                    marker_result = prepare_map_markers(
+                        all_daily_forecasts, target_date=selected_map_date
+                    )
+
+                    # Display separate warnings for missing coordinates vs missing forecast data
+                    if marker_result.missing_coordinates:
+                        st.warning(f"⚠️ 缺少座標：{', '.join(marker_result.missing_coordinates)}")
+                    if marker_result.missing_forecast_regions:
+                        st.warning(f"⚠️ 此日期缺少預報資料：{', '.join(marker_result.missing_forecast_regions)}")
+
+                    # Legend with exact threshold definitions matching get_temperature_color
+                    st.caption(
+                        "🎨 **地圖圖例（以當日最高氣溫著色）：**  \n"
+                        "🔵 **偏涼 / 寒冷** (< 20.0 °C) ｜ "
+                        "🟢 **舒適** (20.0 ≤ 氣溫 < 25.0 °C) ｜ "
+                        "🟠 **溫暖 / 偏熱** (25.0 ≤ 氣溫 < 30.0 °C) ｜ "
+                        "🔴 **炎熱** (≥ 30.0 °C) ｜ "
+                        "⚪ **資料缺失** (N/A)"
+                    )
+
+                    # Create Folium map with fallback center [23.7, 120.95] and zoom 7
+                    m = folium.Map(
+                        location=[23.7, 120.95],
+                        zoom_start=7,
+                        tiles="OpenStreetMap",
+                        control_scale=True,
+                    )
+
+                    # Render markers
+                    for marker in marker_result.markers:
+                        max_str = f"{marker.max_temp:.1f}°C" if marker.max_temp is not None else "N/A"
+                        folium.CircleMarker(
+                            location=[marker.latitude, marker.longitude],
+                            radius=9,
+                            color=marker.marker_color,
+                            fill=True,
+                            fill_color=marker.marker_color,
+                            fill_opacity=0.85,
+                            weight=2,
+                            tooltip=f"{marker.region} (最高: {max_str})",
+                            popup=folium.Popup(marker.popup_html, max_width=260),
+                        ).add_to(m)
+
+                    # Fit bounds with rendered marker coordinates and padding
+                    bounds = compute_bounds(marker_result.markers)
+                    if bounds is not None:
+                        m.fit_bounds(bounds, padding=(20, 20))
+
+                    st_folium(m, width="100%", height=560, returned_objects=[])

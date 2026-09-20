@@ -13,11 +13,14 @@ import pytest
 from src.transformations import (
     CwaTransformationError,
     DAILY_COLUMNS,
+    MULTI_DAILY_COLUMNS,
     TZ_TAIPEI,
     aggregate_daily_forecast,
+    aggregate_daily_forecasts_by_region,
     filter_daily_forecast,
     filter_raw_forecast_by_dates,
 )
+
 
 
 @pytest.fixture
@@ -412,3 +415,166 @@ class TestDailyDateFiltering:
         assert len(raw_filtered) == 2
         assert raw_filtered["forecast_start"].dt.date.iloc[0] == date(2026, 9, 21)
         assert raw_filtered["forecast_start"].dt.date.iloc[1] == date(2026, 9, 21)
+
+
+class TestAggregateDailyForecastsByRegion:
+    """Test suite for multi-region daily forecast aggregation."""
+
+    @pytest.fixture
+    def multi_region_raw_df(self, base_fetched_at):
+        """Fixture with two regions across two calendar dates."""
+        rows = [
+            # 臺北市 - Day 1: 2 intervals (complete)
+            {
+                "region": "臺北市",
+                "forecast_start": datetime(2026, 9, 21, 6, 0, 0, tzinfo=TZ_TAIPEI),
+                "forecast_end": datetime(2026, 9, 21, 18, 0, 0, tzinfo=TZ_TAIPEI),
+                "min_temp": 24.0,
+                "max_temp": 32.0,
+                "fetched_at": base_fetched_at,
+            },
+            {
+                "region": "臺北市",
+                "forecast_start": datetime(2026, 9, 21, 18, 0, 0, tzinfo=TZ_TAIPEI),
+                "forecast_end": datetime(2026, 9, 22, 6, 0, 0, tzinfo=TZ_TAIPEI),
+                "min_temp": 22.0,
+                "max_temp": 26.0,
+                "fetched_at": base_fetched_at,
+            },
+            # 臺北市 - Day 2: 1 interval (partial)
+            {
+                "region": "臺北市",
+                "forecast_start": datetime(2026, 9, 22, 6, 0, 0, tzinfo=TZ_TAIPEI),
+                "forecast_end": datetime(2026, 9, 22, 18, 0, 0, tzinfo=TZ_TAIPEI),
+                "min_temp": 25.0,
+                "max_temp": 33.0,
+                "fetched_at": base_fetched_at,
+            },
+            # 高雄市 - Day 1: 2 intervals (complete)
+            {
+                "region": "高雄市",
+                "forecast_start": datetime(2026, 9, 21, 6, 0, 0, tzinfo=TZ_TAIPEI),
+                "forecast_end": datetime(2026, 9, 21, 18, 0, 0, tzinfo=TZ_TAIPEI),
+                "min_temp": 27.0,
+                "max_temp": 34.0,
+                "fetched_at": base_fetched_at,
+            },
+            {
+                "region": "高雄市",
+                "forecast_start": datetime(2026, 9, 21, 18, 0, 0, tzinfo=TZ_TAIPEI),
+                "forecast_end": datetime(2026, 9, 22, 6, 0, 0, tzinfo=TZ_TAIPEI),
+                "min_temp": 26.0,
+                "max_temp": 29.0,
+                "fetched_at": base_fetched_at,
+            },
+            # 高雄市 - Day 2: 1 interval (partial)
+            {
+                "region": "高雄市",
+                "forecast_start": datetime(2026, 9, 22, 6, 0, 0, tzinfo=TZ_TAIPEI),
+                "forecast_end": datetime(2026, 9, 22, 18, 0, 0, tzinfo=TZ_TAIPEI),
+                "min_temp": 28.0,
+                "max_temp": 35.0,
+                "fetched_at": base_fetched_at,
+            },
+        ]
+        return pd.DataFrame(rows)
+
+    def test_aggregate_multi_region_basic(self, multi_region_raw_df, base_fetched_at):
+        """Verify multiple regions aggregate into per-region per-date daily rows."""
+        daily_df = aggregate_daily_forecasts_by_region(multi_region_raw_df)
+        assert len(daily_df) == 4
+        assert list(daily_df.columns) == MULTI_DAILY_COLUMNS
+
+        # Verify regions and sorting
+        assert list(daily_df["region"].unique()) == ["臺北市", "高雄市"]
+
+        # Check 臺北市 Day 1
+        tpe_d1 = daily_df[(daily_df["region"] == "臺北市") & (daily_df["forecast_date"] == date(2026, 9, 21))].iloc[0]
+        assert tpe_d1["min_temp"] == 22.0
+        assert tpe_d1["max_temp"] == 32.0
+        assert tpe_d1["interval_count"] == 2
+        assert tpe_d1["is_partial"] is False or tpe_d1["is_partial"] == False
+
+        # Check 高雄市 Day 2
+        kh_d2 = daily_df[(daily_df["region"] == "高雄市") & (daily_df["forecast_date"] == date(2026, 9, 22))].iloc[0]
+        assert kh_d2["min_temp"] == 28.0
+        assert kh_d2["max_temp"] == 35.0
+        assert kh_d2["interval_count"] == 1
+        assert kh_d2["is_partial"] is True or kh_d2["is_partial"] == True
+
+    def test_aggregate_multi_region_rejects_duplicate_intervals(
+        self, multi_region_raw_df
+    ):
+        """Verify duplicate (region, forecast_start, forecast_end) rows raise CwaTransformationError.
+
+        Proves that duplicate multi-region intervals are strictly rejected rather than
+        silently deduplicated.
+        """
+        # Duplicate the first row of 臺北市
+        dup_row = multi_region_raw_df.iloc[0:1].copy()
+        df_with_dups = pd.concat([multi_region_raw_df, dup_row], ignore_index=True)
+
+        with pytest.raises(
+            CwaTransformationError,
+            match="Duplicate \\(region, forecast_start, forecast_end\\) intervals",
+        ):
+            aggregate_daily_forecasts_by_region(df_with_dups)
+
+    def test_aggregate_multi_region_mixed_snapshots_rejected(
+        self, multi_region_raw_df
+    ):
+        """Verify mixed fetched_at values raise CwaTransformationError."""
+        df_mixed = multi_region_raw_df.copy()
+        df_mixed.loc[0, "fetched_at"] = datetime(2026, 9, 20, 18, 0, 0, tzinfo=timezone.utc)
+
+        with pytest.raises(
+            CwaTransformationError,
+            match="Input DataFrame contains multiple fetched_at snapshots",
+        ):
+            aggregate_daily_forecasts_by_region(df_mixed)
+
+    def test_aggregate_multi_region_naive_timestamps_rejected(
+        self, multi_region_raw_df
+    ):
+        """Verify timezone-naive timestamps raise CwaTransformationError."""
+        df_naive = multi_region_raw_df.copy()
+        df_naive["forecast_start"] = df_naive["forecast_start"].astype(object)
+        df_naive.loc[0, "forecast_start"] = datetime(2026, 9, 21, 6, 0, 0)
+
+        with pytest.raises(
+            CwaTransformationError,
+            match="'forecast_start' is timezone-naive",
+        ):
+            aggregate_daily_forecasts_by_region(df_naive)
+
+
+    def test_aggregate_multi_region_empty_dataframe(self):
+        """Verify empty DataFrame returns empty multi-daily DataFrame with correct schema."""
+        empty_df = pd.DataFrame(
+            columns=[
+                "region",
+                "forecast_start",
+                "forecast_end",
+                "min_temp",
+                "max_temp",
+                "fetched_at",
+            ]
+        )
+        res = aggregate_daily_forecasts_by_region(empty_df)
+        assert res.empty
+        assert list(res.columns) == MULTI_DAILY_COLUMNS
+
+    def test_aggregate_multi_region_non_dataframe_rejected(self):
+        """Verify non-DataFrame input raises CwaTransformationError."""
+        with pytest.raises(
+            CwaTransformationError, match="Input must be a pandas DataFrame"
+        ):
+            aggregate_daily_forecasts_by_region("not_a_df")  # type: ignore
+
+    def test_aggregate_multi_region_missing_columns_rejected(self):
+        """Verify missing required columns raise CwaTransformationError."""
+        df = pd.DataFrame({"region": ["臺北市"], "forecast_start": [None]})
+        with pytest.raises(
+            CwaTransformationError, match="missing required columns"
+        ):
+            aggregate_daily_forecasts_by_region(df)
