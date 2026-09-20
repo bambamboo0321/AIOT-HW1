@@ -1,29 +1,18 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# macOS system files
-.DS_Store
-
-# IDE and editors
-.vscode/
-.idea/
-
-# Virtual environments
+# Environment and dependencies
+.env
 .venv/
 venv/
-ENV/
-env/
 
-# Streamlit secrets (NEVER commit secrets or API keys)
+# Secrets
 .streamlit/secrets.toml
 
-# SQLite local databases
-*.db
-*.sqlite3
-data/*.db
-data/*.sqlite3
+# Python caches
+__pycache__/
+*.pyc
+*.py[cod]
 
-# Pytest / test caches
-.pytest_cache/
+# Local databases
+*.db
+
+# Operating System
+.DS_Store
