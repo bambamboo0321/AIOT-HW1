@@ -7,6 +7,7 @@ Milestone: M1 — CWA API Acquisition
 
 import os
 from typing import Any, Dict, Optional, Tuple, Union
+import certifi
 import requests
 
 import streamlit as st
@@ -143,6 +144,32 @@ def validate_response_m1(data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _classify_ssl_error(exc: Exception) -> str:
+    """Classify an SSLError into a concise, safe diagnostic category without credentials.
+
+    Categories:
+        - unable_to_get_local_issuer
+        - certificate_expired
+        - hostname_mismatch
+        - self_signed_certificate
+        - generic_ssl_failure
+    """
+    err_str = str(exc).lower()
+    if "unable to get local issuer" in err_str:
+        return "unable_to_get_local_issuer"
+    if "expired" in err_str:
+        return "certificate_expired"
+    if (
+        "hostname" in err_str or "host name" in err_str
+    ) and (
+        "mismatch" in err_str or "doesn't match" in err_str or "does not match" in err_str
+    ):
+        return "hostname_mismatch"
+    if "self-signed" in err_str or "self signed" in err_str:
+        return "self_signed_certificate"
+    return "generic_ssl_failure"
+
+
 def fetch_forecast_raw(
     dataset_id: str = "F-D0047-091",
     timeout: Union[Tuple[float, float], float, int] = (10.0, 60.0),
@@ -177,13 +204,20 @@ def fetch_forecast_raw(
 
     # Step 1: Perform network request with timeout
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=timeout)
+        response = requests.get(
+            url,
+            headers=headers,
+            params=params,
+            timeout=timeout,
+            verify=certifi.where(),
+        )
     except requests.exceptions.ConnectTimeout as exc:
         raise CwaConnectionError("Timed out while connecting to the CWA API server.") from exc
     except requests.exceptions.ReadTimeout as exc:
         raise CwaConnectionError("Connected to CWA, but the forecast response timed out while downloading.") from exc
     except requests.exceptions.SSLError as exc:
-        raise CwaConnectionError("SSL verification failed while connecting to the CWA API server.") from exc
+        ssl_reason = _classify_ssl_error(exc)
+        raise CwaConnectionError(f"SSL verification failed ({ssl_reason}).") from exc
     except requests.exceptions.ProxyError as exc:
         raise CwaConnectionError("The deployment network proxy could not reach the CWA API server.") from exc
     except requests.exceptions.ConnectionError as exc:

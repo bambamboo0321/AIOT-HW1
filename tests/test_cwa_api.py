@@ -4,6 +4,7 @@ All tests run in isolation using unittest.mock and never make real network calls
 """
 
 from unittest.mock import MagicMock, PropertyMock, patch
+import certifi
 import pytest
 import requests
 import streamlit.errors
@@ -150,6 +151,8 @@ class TestFetchForecastRaw:
             "User-Agent": "AIOT-HW1-Weather-Dashboard/1.0",
         }
         assert mock_get.call_args[1]["timeout"] == (10.0, 60.0)
+        assert mock_get.call_args[1]["verify"] == certifi.where()
+        assert mock_get.call_args[1]["verify"] is not False
 
 
     @patch("src.cwa_api.requests.get")
@@ -253,13 +256,75 @@ class TestFetchForecastRaw:
             fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
 
     @patch("src.cwa_api.requests.get")
-    def test_fetch_ssl_error_raises_connection_error(self, mock_get):
-        """Verify SSLError raises CwaConnectionError with SSL verification message."""
-        mock_get.side_effect = requests.exceptions.SSLError("Certificate verify failed")
+    def test_fetch_requests_uses_certifi_verify(self, mock_get):
+        """Verify requests.get is invoked with certifi.where() and never verify=False."""
+        payload = _make_valid_m1_payload()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = payload
+        mock_get.return_value = mock_resp
 
+        fetch_forecast_raw("F-D0047-091", api_key="test-key")
+        mock_get.assert_called_once()
+        verify_arg = mock_get.call_args[1].get("verify")
+        assert verify_arg == certifi.where()
+        assert verify_arg is not False
+
+    @patch("src.cwa_api.requests.get")
+    def test_fetch_ssl_unable_to_get_local_issuer(self, mock_get):
+        """Verify SSLError with unable to get local issuer is classified correctly."""
+        mock_get.side_effect = requests.exceptions.SSLError(
+            "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate"
+        )
         with pytest.raises(
             CwaConnectionError,
-            match="SSL verification failed while connecting to the CWA API server",
+            match=r"^SSL verification failed \(unable_to_get_local_issuer\)\.$",
+        ):
+            fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
+
+    @patch("src.cwa_api.requests.get")
+    def test_fetch_ssl_certificate_expired(self, mock_get):
+        """Verify SSLError with expired certificate is classified correctly."""
+        mock_get.side_effect = requests.exceptions.SSLError(
+            "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired"
+        )
+        with pytest.raises(
+            CwaConnectionError,
+            match=r"^SSL verification failed \(certificate_expired\)\.$",
+        ):
+            fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
+
+    @patch("src.cwa_api.requests.get")
+    def test_fetch_ssl_hostname_mismatch(self, mock_get):
+        """Verify SSLError with hostname mismatch is classified correctly."""
+        mock_get.side_effect = requests.exceptions.SSLError(
+            "Hostname mismatch, certificate is not valid for 'opendata.cwa.gov.tw'"
+        )
+        with pytest.raises(
+            CwaConnectionError,
+            match=r"^SSL verification failed \(hostname_mismatch\)\.$",
+        ):
+            fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
+
+    @patch("src.cwa_api.requests.get")
+    def test_fetch_ssl_self_signed_certificate(self, mock_get):
+        """Verify SSLError with self-signed certificate is classified correctly."""
+        mock_get.side_effect = requests.exceptions.SSLError(
+            "[SSL: CERTIFICATE_VERIFY_FAILED] self-signed certificate in certificate chain"
+        )
+        with pytest.raises(
+            CwaConnectionError,
+            match=r"^SSL verification failed \(self_signed_certificate\)\.$",
+        ):
+            fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
+
+    @patch("src.cwa_api.requests.get")
+    def test_fetch_ssl_generic_failure(self, mock_get):
+        """Verify SSLError with generic reason falls back to generic_ssl_failure."""
+        mock_get.side_effect = requests.exceptions.SSLError("Unexpected SSL error")
+        with pytest.raises(
+            CwaConnectionError,
+            match=r"^SSL verification failed \(generic_ssl_failure\)\.$",
         ):
             fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
 
@@ -322,20 +387,27 @@ class TestFetchForecastRaw:
             fetch_forecast_raw("F-D0047-091", api_key=secret_key)
         assert secret_key not in str(exc_info.value)
 
-        # SSLError
-        mock_get.side_effect = requests.exceptions.SSLError("SSL failed")
-        with pytest.raises(CwaConnectionError) as exc_info:
-            fetch_forecast_raw("F-D0047-091", api_key=secret_key)
-        assert secret_key not in str(exc_info.value)
+        # SSLError with secret key in underlying message
+        for ssl_cause in [
+            f"unable to get local issuer certificate key={secret_key}",
+            f"certificate has expired key={secret_key}",
+            f"hostname mismatch key={secret_key}",
+            f"self-signed certificate in chain key={secret_key}",
+            f"unknown failure key={secret_key}",
+        ]:
+            mock_get.side_effect = requests.exceptions.SSLError(ssl_cause)
+            with pytest.raises(CwaConnectionError) as exc_info:
+                fetch_forecast_raw("F-D0047-091", api_key=secret_key)
+            assert secret_key not in str(exc_info.value)
 
         # ProxyError
-        mock_get.side_effect = requests.exceptions.ProxyError("Proxy failed")
+        mock_get.side_effect = requests.exceptions.ProxyError(f"Proxy failed key={secret_key}")
         with pytest.raises(CwaConnectionError) as exc_info:
             fetch_forecast_raw("F-D0047-091", api_key=secret_key)
         assert secret_key not in str(exc_info.value)
 
         # ConnectionError
-        mock_get.side_effect = requests.exceptions.ConnectionError("Network failed")
+        mock_get.side_effect = requests.exceptions.ConnectionError(f"Network failed key={secret_key}")
         with pytest.raises(CwaConnectionError) as exc_info:
             fetch_forecast_raw("F-D0047-091", api_key=secret_key)
         assert secret_key not in str(exc_info.value)
