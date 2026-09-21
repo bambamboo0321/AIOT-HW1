@@ -6,8 +6,9 @@ Milestone: M1 — CWA API Acquisition
 """
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple, Union
 import requests
+
 import streamlit as st
 import streamlit.errors
 
@@ -144,14 +145,15 @@ def validate_response_m1(data: Dict[str, Any]) -> Dict[str, Any]:
 
 def fetch_forecast_raw(
     dataset_id: str = "F-D0047-091",
-    timeout: int = 10,
+    timeout: Union[Tuple[float, float], float, int] = (10.0, 60.0),
     api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Fetch raw forecast JSON data from the CWA Open Data API.
 
     Args:
         dataset_id: CWA dataset identifier (default: "F-D0047-091" 1-week forecast).
-        timeout: Maximum time in seconds to wait for network response.
+        timeout: Maximum time in seconds to wait for network response, or a tuple
+            of (connect_timeout, read_timeout) in seconds. Default is (10.0, 60.0).
         api_key: Optional explicit API key; if None, resolved via `get_cwa_api_key()`.
 
     Returns:
@@ -166,18 +168,31 @@ def fetch_forecast_raw(
     """
     key = api_key if api_key is not None else get_cwa_api_key()
     url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/{dataset_id}"
-    headers = {"Authorization": key}
+    headers = {
+        "Authorization": key,
+        "Accept": "application/json",
+        "User-Agent": "AIOT-HW1-Weather-Dashboard/1.0",
+    }
     params = {"format": "JSON"}
 
     # Step 1: Perform network request with timeout
     try:
         response = requests.get(url, headers=headers, params=params, timeout=timeout)
+    except requests.exceptions.ConnectTimeout as exc:
+        raise CwaConnectionError("Timed out while connecting to the CWA API server.") from exc
+    except requests.exceptions.ReadTimeout as exc:
+        raise CwaConnectionError("Connected to CWA, but the forecast response timed out while downloading.") from exc
+    except requests.exceptions.SSLError as exc:
+        raise CwaConnectionError("SSL verification failed while connecting to the CWA API server.") from exc
+    except requests.exceptions.ProxyError as exc:
+        raise CwaConnectionError("The deployment network proxy could not reach the CWA API server.") from exc
+    except requests.exceptions.ConnectionError as exc:
+        raise CwaConnectionError("Network connection to the CWA API server failed.") from exc
     except requests.exceptions.Timeout as exc:
         raise CwaConnectionError("Request to CWA API timed out.") from exc
-    except requests.exceptions.ConnectionError as exc:
-        raise CwaConnectionError("Failed to connect to CWA API server.") from exc
     except requests.exceptions.RequestException as exc:
         raise CwaConnectionError("A network error occurred while reaching CWA API.") from exc
+
 
     # Step 2: Check HTTP status code before parsing JSON body
     status = response.status_code

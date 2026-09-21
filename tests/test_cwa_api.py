@@ -142,9 +142,15 @@ class TestFetchForecastRaw:
         data = fetch_forecast_raw("F-D0047-091", api_key="test-secret-key")
         assert data == payload
         mock_get.assert_called_once()
-        # Verify authorization header passed
+        # Verify authorization, accept, user-agent headers and default timeout
         headers = mock_get.call_args[1]["headers"]
-        assert headers == {"Authorization": "test-secret-key"}
+        assert headers == {
+            "Authorization": "test-secret-key",
+            "Accept": "application/json",
+            "User-Agent": "AIOT-HW1-Weather-Dashboard/1.0",
+        }
+        assert mock_get.call_args[1]["timeout"] == (10.0, 60.0)
+
 
     @patch("src.cwa_api.requests.get")
     def test_fetch_200_with_invalid_json_raises_api_error(self, mock_get):
@@ -208,31 +214,128 @@ class TestFetchForecastRaw:
             fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
 
     @patch("src.cwa_api.requests.get")
-    def test_fetch_timeout_raises_connection_error(self, mock_get):
-        """Verify Timeout exception raises CwaConnectionError."""
-        mock_get.side_effect = requests.exceptions.Timeout("Connection timed out")
+    def test_fetch_int_and_float_timeout_compatibility(self, mock_get):
+        """Verify int and float timeout parameters are accepted and passed to requests.get."""
+        payload = _make_valid_m1_payload()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = payload
+        mock_get.return_value = mock_resp
 
-        with pytest.raises(CwaConnectionError, match="timed out"):
+        # Test int timeout
+        fetch_forecast_raw("F-D0047-091", timeout=15, api_key="test-key")
+        assert mock_get.call_args[1]["timeout"] == 15
+
+        # Test float timeout
+        fetch_forecast_raw("F-D0047-091", timeout=5.5, api_key="test-key")
+        assert mock_get.call_args[1]["timeout"] == 5.5
+
+    @patch("src.cwa_api.requests.get")
+    def test_fetch_connect_timeout_raises_connection_error(self, mock_get):
+        """Verify ConnectTimeout raises CwaConnectionError with connect timeout message."""
+        mock_get.side_effect = requests.exceptions.ConnectTimeout("Connect timed out")
+
+        with pytest.raises(
+            CwaConnectionError,
+            match="Timed out while connecting to the CWA API server",
+        ):
+            fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
+
+    @patch("src.cwa_api.requests.get")
+    def test_fetch_read_timeout_raises_connection_error(self, mock_get):
+        """Verify ReadTimeout raises CwaConnectionError with read timeout message."""
+        mock_get.side_effect = requests.exceptions.ReadTimeout("Read timed out")
+
+        with pytest.raises(
+            CwaConnectionError,
+            match="Connected to CWA, but the forecast response timed out while downloading",
+        ):
+            fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
+
+    @patch("src.cwa_api.requests.get")
+    def test_fetch_ssl_error_raises_connection_error(self, mock_get):
+        """Verify SSLError raises CwaConnectionError with SSL verification message."""
+        mock_get.side_effect = requests.exceptions.SSLError("Certificate verify failed")
+
+        with pytest.raises(
+            CwaConnectionError,
+            match="SSL verification failed while connecting to the CWA API server",
+        ):
+            fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
+
+    @patch("src.cwa_api.requests.get")
+    def test_fetch_proxy_error_raises_connection_error(self, mock_get):
+        """Verify ProxyError raises CwaConnectionError with proxy message."""
+        mock_get.side_effect = requests.exceptions.ProxyError("Proxy unreachable")
+
+        with pytest.raises(
+            CwaConnectionError,
+            match="The deployment network proxy could not reach the CWA API server",
+        ):
             fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
 
     @patch("src.cwa_api.requests.get")
     def test_fetch_connection_error_raises_connection_error(self, mock_get):
-        """Verify ConnectionError exception raises CwaConnectionError."""
+        """Verify generic ConnectionError raises CwaConnectionError with network failure message."""
         mock_get.side_effect = requests.exceptions.ConnectionError("DNS lookup failed")
 
-        with pytest.raises(CwaConnectionError, match="Failed to connect"):
+        with pytest.raises(
+            CwaConnectionError,
+            match="Network connection to the CWA API server failed",
+        ):
+            fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
+
+    @patch("src.cwa_api.requests.get")
+    def test_fetch_generic_timeout_raises_connection_error(self, mock_get):
+        """Verify generic Timeout raises CwaConnectionError with generic timeout message."""
+        mock_get.side_effect = requests.exceptions.Timeout("Generic timeout")
+
+        with pytest.raises(
+            CwaConnectionError,
+            match="Request to CWA API timed out",
+        ):
             fetch_forecast_raw("F-D0047-091", api_key="dummy-key")
 
     @patch("src.cwa_api.requests.get")
     def test_error_message_never_leaks_key(self, mock_get):
-        """Verify that error messages never contain the secret key string."""
+        """Verify that error messages never contain the secret key string across all errors."""
         secret_key = "TOP_SECRET_CWA_KEY_VALUE_XYZ"
+
+        # HTTP error
         mock_resp = MagicMock()
         mock_resp.status_code = 401
         mock_get.return_value = mock_resp
-
+        mock_get.side_effect = None
         with pytest.raises(CwaAuthError) as exc_info:
             fetch_forecast_raw("F-D0047-091", api_key=secret_key)
+        assert secret_key not in str(exc_info.value)
 
-        error_message = str(exc_info.value)
-        assert secret_key not in error_message
+        # ConnectTimeout
+        mock_get.side_effect = requests.exceptions.ConnectTimeout("Connect timed out")
+        with pytest.raises(CwaConnectionError) as exc_info:
+            fetch_forecast_raw("F-D0047-091", api_key=secret_key)
+        assert secret_key not in str(exc_info.value)
+
+        # ReadTimeout
+        mock_get.side_effect = requests.exceptions.ReadTimeout("Read timed out")
+        with pytest.raises(CwaConnectionError) as exc_info:
+            fetch_forecast_raw("F-D0047-091", api_key=secret_key)
+        assert secret_key not in str(exc_info.value)
+
+        # SSLError
+        mock_get.side_effect = requests.exceptions.SSLError("SSL failed")
+        with pytest.raises(CwaConnectionError) as exc_info:
+            fetch_forecast_raw("F-D0047-091", api_key=secret_key)
+        assert secret_key not in str(exc_info.value)
+
+        # ProxyError
+        mock_get.side_effect = requests.exceptions.ProxyError("Proxy failed")
+        with pytest.raises(CwaConnectionError) as exc_info:
+            fetch_forecast_raw("F-D0047-091", api_key=secret_key)
+        assert secret_key not in str(exc_info.value)
+
+        # ConnectionError
+        mock_get.side_effect = requests.exceptions.ConnectionError("Network failed")
+        with pytest.raises(CwaConnectionError) as exc_info:
+            fetch_forecast_raw("F-D0047-091", api_key=secret_key)
+        assert secret_key not in str(exc_info.value)
