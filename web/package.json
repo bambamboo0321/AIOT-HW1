@@ -12,16 +12,21 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "leaflet": "^1.9.4",
     "next": "16.3.6",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
+    "jsdom": "^29.1.1",
     "typescript": "^5",
     "vitest": "^3.0.0"
   }
