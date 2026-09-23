@@ -1,21 +1,28 @@
 # Taiwan Weather Dashboard V2 — Web Application
 
-This directory contains the Next.js / Vercel stateless web application for the Taiwan Weather Dashboard V2, established in Milestone M7.
+This directory contains the Next.js / Vercel stateless web application for the Taiwan Weather Dashboard V2.
 
-## Purpose (Milestone M7)
+## Milestones Overview
 
-Milestone M7 establishes the technical foundation for the V2 web application:
+### Milestone M7 — Foundation
 - Next.js (App Router) + TypeScript foundation
 - Standardized API contract envelope (`{ ok, data, error }`)
 - Server-only environment module with on-demand credential validation
 - Safe server HTTP client with explicit error taxonomy and defense-in-depth redaction
-- Service health endpoint at `/api/health`
+- Service health endpoint at `GET /api/health`
 - Complete unit test suite with Vitest
+
+### Milestone M8 — CWA 7-Day Forecast Server API
+- Server-only CWA Open Data client for dataset `F-D0047-091`
+- `GET /api/weather/forecast` endpoint
+- Normalizes ~685 KB raw response down to ~15 KB clean, sorted payload
+- Dynamically pairs "最低溫度" and "最高溫度" by time intervals
+- Cache-Control policy: `public, max-age=300, s-maxage=600, stale-while-revalidate=1800`
+- Safe error classification without leaking API keys or raw upstream bodies
 
 > **Status Notice:**
 > - The existing Streamlit version in the repository root remains available and functional.
-> - Upstream CWA / MOENV data integration will be added in subsequent milestones (M8+).
-> - This application has **not** yet been deployed to Vercel.
+> - Observations, air quality (MOENV), and UV integrations will be added in subsequent milestones.
 
 ## Local Requirements
 
@@ -63,4 +70,5 @@ cp .env.example .env.local
 - `.env.example` contains only non-sensitive placeholders.
 - Real API keys (`CWA_API_KEY`, `MOENV_API_KEY`, `ADMIN_PASSWORD`) must **never** be committed to Git.
 - `web/.gitignore` automatically ignores `.env`, `.env.local`, and `.env.*.local`.
-- In Milestone M7, building and running the application (including `/api/health`) does **not** require any API keys.
+- Building and running `/api/health` does **not** require any API keys.
+- `/api/weather/forecast` requires `CWA_API_KEY` when called; returns `CONFIG_ERROR` if unconfigured.

@@ -17,7 +17,7 @@ export default function HomePage() {
           Taiwan Weather Dashboard V2
         </h1>
         <p style={{ color: "#666", fontSize: "1.1rem" }}>
-          Next.js / Vercel foundation — Milestone M7
+          Next.js / Vercel foundation — Milestone M8
         </p>
       </header>
 
@@ -39,13 +39,16 @@ export default function HomePage() {
             contracts, safe server HTTP client, and health endpoints established.
           </li>
           <li style={{ marginBottom: "8px" }}>
+            <strong>Milestone M8:</strong> CWA 7-day county/city weather forecast
+            server API (<code>/api/weather/forecast</code>) established.
+          </li>
+          <li style={{ marginBottom: "8px" }}>
             <strong>Existing Application:</strong> The Streamlit version remains
             available and fully operational.
           </li>
           <li style={{ marginBottom: "8px" }}>
-            <strong>Future Integration:</strong> CWA forecast, weather
-            observation, air quality (MOENV), and UV API integrations will be
-            added in later milestones.
+            <strong>Future Integration:</strong> Weather observation, air quality
+            (MOENV), and UV API integrations will be added in later milestones.
           </li>
           <li>
             <strong>Health Check:</strong> The service health endpoint is
