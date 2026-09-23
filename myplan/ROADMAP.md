@@ -20,32 +20,37 @@
 
 ## 2. 里程碑進度總表
 
+### Legacy Streamlit V1 (已完成基線)
 | Milestone | 範圍 (Scope) | 目標內容 | 狀態 (Status) |
 | :--- | :--- | :--- | :--- |
-| **M1** | CWA API acquisition | CWA API 憑證載入、HTTP 請求封裝、狀態驗證與錯誤處理 | **Completed** |
-| **M2** | JSON parsing and cleaning | 22 縣市 × 15 區間巢狀結構解析、時區標準化為臺北時間 | **Completed** |
-| **M3** | SQLite persistence | 快照式 SQLite 表結構建立、唯讀約束、防止重複寫入 | **Completed** |
-| **M4** | Snapshot query layer | 快照隔離查詢介面、日期區間過濾、跨快照防污染機制 | **Completed** |
-| **M5** | Daily Streamlit dashboard | 每日高低溫極值彙整、殘缺日偵測、Streamlit 圖表與指標 | **Completed** |
-| **M6** | Taiwan county weather map | 22 縣市代表座標標記、溫度色階渲染、Folium 地圖展示 | **Completed** |
-| **M6.1** | Cloud connectivity timeout handling | 強化雲端環境網路逾時重試與連線容錯機制 | **Completed** |
-| **M6.2** | Streamlit Cloud SSL/runtime compatibility | 鎖定 Python 3.11 執行環境，解決 SSL 憑證鏈相容問題 | **Completed** |
-| **M7** | Cloud Data Foundation | Supabase PostgreSQL、SQLite/PostgreSQL storage adapter、migrations、sync metadata、secure connection handling 與 production failure behavior | **Planned** |
-| **M8** | Geographic Registry & CWA Dataset Discovery | 縣市／鄉鎮階層、F-D0047-091 完整結構、geocode、座標、行政區界線及預報因子探勘 | **Planned** |
-| **M9** | Complete County and Township Forecast Ingestion | 縣市與鄉鎮完整預報同步（逐時、逐 3 小時、逐 12 小時與逐日資料，涵蓋各預報要素） | **Planned** |
-| **M10** | Real-Time Weather Observations | O-A0003-001 綜觀氣象觀測、O-A0002-001 雨量觀測、測站即時觀測入庫 | **Planned** |
-| **M11** | MOENV Air Quality | AQI、PM2.5、PM10、主要污染物與空品測站資料整合 | **Planned** |
-| **M12** | UV and Weather Alerts | 紫外線官方 Dataset 驗證與資料語意確立、天氣警特報資料整合 | **Planned** |
-| **M13** | Supabase Query Contract and Aggregation | PostgreSQL views、PostgreSQL functions / RPC（僅在確實需要時）、geographic queries、viewport queries、snapshot isolation、public read model、TypeScript data contract 規劃、Row Level Security (RLS) 規劃 | **Planned** |
-| **M14** | Next.js Progressive Multi-Layer Map UI | 在 `web/` 建立 Next.js + TypeScript App、地圖支援全臺/縣市/鄉鎮、progressive disclosure、viewport / zoom loading、Hover 僅為輔助、Click / Tap / keyboard 為核心操作、多資料圖層、手機響應式 UI、loading / empty / stale / error states | **Planned** |
-| **M15** | Python Sync Worker and Administration | 保留現有 Python API client 與 parser、管理員手動同步、sync run status、防止重複同步、Worker 執行環境另行評估（GitHub Actions、Vercel Functions、Supabase Edge Functions 列為候選，實測決定；初期不重寫 Python parser） | **Planned** |
-| **M16** | Vercel Migration, Performance and Accessibility | GitHub → Vercel Preview Deployments、Vercel production deployment、Supabase integration、RLS verification、Streamlit / Vercel data parity、mobile、accessibility、map performance、caching、stale data behavior、rollback plan（Vercel 通過驗收後才決定是否停止 Streamlit） | **Planned** |
-| **M17** | Optional Advanced Layers | 雷達、雷電、衛星、颱風、歷史趨勢、通知與自動排程 | **Optional** |
+| **M1** | CWA API acquisition | CWA API 憑證載入、HTTP 請求封裝、狀態驗證與錯誤處理 | **Completed (Legacy V1)** |
+| **M2** | JSON parsing and cleaning | 22 縣市 × 15 區間巢狀結構解析、時區標準化為臺北時間 | **Completed (Legacy V1)** |
+| **M3** | SQLite persistence | 快照式 SQLite 表結構建立、唯讀約束、防止重複寫入 | **Completed (Legacy V1)** |
+| **M4** | Snapshot query layer | 快照隔離查詢介面、日期區間過濾、跨快照防污染機制 | **Completed (Legacy V1)** |
+| **M5** | Daily Streamlit dashboard | 每日高低溫極值彙整、殘缺日偵測、Streamlit 圖表與指標 | **Completed (Legacy V1)** |
+| **M6** | Taiwan county weather map | 22 縣市代表座標標記、溫度色階渲染、Folium 地圖展示 | **Completed (Legacy V1)** |
+| **M6.1** | Cloud connectivity timeout handling | 強化雲端環境網路逾時重試與連線容錯機制 | **Completed (Legacy V1)** |
+| **M6.2** | Streamlit Cloud SSL/runtime compatibility | 鎖定 Python 3.11 執行環境，解決 SSL 憑證鏈相容問題 | **Completed (Legacy V1)** |
+
+### Stateless Vercel V2 (目標演進)
+| Milestone | 範圍 (Scope) | 目標內容 | 狀態 (Status) |
+| :--- | :--- | :--- | :--- |
+| **M7** | Vercel Web Foundation and Server Data Gateway | 建立最小 `web/` Next.js + TypeScript 專案、App Router 基礎、server-only HTTP client、Route Handler 基礎架構、環境變數校驗、timeout / TLS / error mapping / redaction、response envelope、cache interface 與測試、最小 health/status endpoint、Vitest 基礎；不建立正式地圖 UI、不整合完整 Dataset、不建立資料庫 | **Planned** |
+| **M8** | Geographic Registry & CWA Dataset Discovery | F-D0047-091 完整結構、22 縣市與 368 鄉鎮、geocode、座標與行政邊界、預報因子與時間解析；地理資料可使用版本控制的靜態檔案，不保存 API 歷史資料 | **Planned** |
+| **M9** | County and Township Forecast API | 縣市與鄉鎮預報、逐時、逐 3 小時、逐 12 小時與逐日資料，包含溫度、體感、濕度、降雨機率、風與天氣現象；Server Route Handler、validation / normalization、short-term cache，不寫入資料庫 | **Planned** |
+| **M10** | Real-Time Weather Observation API | O-A0003-001、O-A0002-001 最新測站觀測、最新雨量、測站 metadata、缺值 sentinel、short-term cache，不保存長期時序 | **Planned** |
+| **M11** | MOENV Air Quality API | AQI、PM2.5、PM10、主要污染物、最新空品測站資料、server-side MOENV_API_KEY、short-term cache，不保存歷史資料 | **Planned** |
+| **M12** | UV and Weather Alerts API | 驗證 UV Dataset、最新官方 UV 資料、有效天氣警特報、發布與有效時間、short-term cache，不保存過期歷史 | **Planned** |
+| **M13** | Unified API Contract and Aggregation | 統一 TypeScript response contract、全臺／四區／縣市／鄉鎮 aggregation、viewport query parameters、forecast / observation / AQI / UV 語意分離、server validation、browser-safe response，不再規劃 Supabase View、RPC 或 RLS | **Planned** |
+| **M14** | Progressive Multi-Layer Map UI | 在 M7 已存在的 `web/` 基礎上建立完整地圖使用者介面、全臺→縣市→鄉鎮 progressive disclosure、viewport / zoom loading、圖層切換、Hover 輔助、Click / Tap / keyboard 核心操作、responsive UI、視覺設計與 accessibility、loading / empty / stale / unavailable / error states | **Planned** |
+| **M15** | Refresh, Cache and Admin Diagnostics | 安全的手動 refresh、cache status、latest official data timestamp、server fetch diagnostics、防止使用者高頻重複 refresh，不做資料庫同步、不做 historical ingestion，不建立 Python background worker，除非未來另行批准 | **Planned** |
+| **M16** | Vercel Migration, Performance and Accessibility | Vercel Preview、production deployment、Streamlit / Vercel current-data parity、mobile、accessibility、server route security、API key leakage inspection、caching behavior、external API outage behavior、cutover and rollback（Vercel 通過驗收後才由使用者決定是否停止 Streamlit） | **Planned** |
+| **M17** | Optional Persistence and Advanced Layers | 歷史資料、PostgreSQL / Supabase / Neon、雷達、雷電、衛星、颱風、趨勢分析、通知、自動排程（只有未來真的需要歷史分析，才評估 M17 永久資料庫） | **Optional** |
 
 ---
 
 ## 3. 當前焦點 (Current Focus)
 
-*   **當前階段**：確立 Next.js + Vercel 為前端目標架構，完成 M7～M17 Roadmap 與架構決策重整。
-*   **遷移策略**：遷移期間維持現有 Streamlit App 正式公開運作，待 M16 Vercel 驗收完成後再決定是否停用。
-*   **下一目標**：M7 (Cloud Data Foundation) 雲端資料庫基礎架構設計與實作。
+*   **當前階段**：確立 Stateless Vercel V2 架構，移除永久資料庫與歷史快照負擔，聚焦呈現最新觀測與官方預報。
+*   **遷移策略**：現有 Streamlit + SQLite 保持公開運作作為 Legacy V1 基線，直到 M16 Vercel 驗收完成。
+*   **下一目標**：M7 (Vercel Web Foundation and Server Data Gateway) 建立最小 web/ 專案骨架與伺服端無狀態資料閘道基礎。

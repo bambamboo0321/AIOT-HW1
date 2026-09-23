@@ -33,7 +33,7 @@ Agent 可直接在 AIOT-HW1 repository 內工作。
 - npm run build
 - 檢查 Next.js build output
 - 修改 web/ 內目前 Milestone 範圍的檔案
-- 執行唯讀 SQLite 查詢
+- 執行唯讀 SQLite 查詢（限 Legacy V1 驗證）
 - 建立 pytest tmp_path 測試資料庫
 - 新增正常的 Python import
 - 新增或修改目前 Milestone 範圍內的程式碼
@@ -61,16 +61,13 @@ Agent 不得只因需要新增 import、執行 grep、查看 diff、啟動 venv�
 - 刪除或覆寫使用者資料
 - git reset --hard、git clean、checkout 丟棄修改等破壞性 Git 操作
 - 讀取、顯示、複製、修改或搬移真實 Secrets
-- 將 API Key、密碼或 DATABASE_URL 寫入任何追蹤檔案
-- 建立或修改 Supabase、Streamlit Cloud、Google 或其他外部服務
+- 將 API Key、密碼或連線字串寫入任何追蹤檔案
 - 建立或連接 Vercel Project
 - 修改 Vercel Environment Variables
 - 執行 production deployment
 - 修改 production domain
-- 修改 Supabase RLS 或正式 migration
+- 未來若要評估引入永久資料庫（如 M17 PostgreSQL/Supabase/Neon）
 - 停止或刪除現有 Streamlit App
-- 寫入或刪除正式雲端資料庫資料
-- 修改 Streamlit Cloud Settings 或 Secrets
 - 建立付費資源
 - 發送 Email、通知或對外訊息
 - 操作 AIOT-HW1 repository 以外的檔案
@@ -82,7 +79,7 @@ Agent 不得只因需要新增 import、執行 grep、查看 diff、啟動 venv�
 - 真實 Secrets 只能由使用者自行放入本機 secrets.toml、環境變數、Vercel Environment Variables 或 Streamlit Cloud Secrets。
 - 不得輸出、記錄或重複使用聊天中曾出現的 API Key。
 - 文件、測試、Fixture 與範例只能使用假值。
-- `.streamlit/secrets.toml`、`.env`、`.env.local`、DATABASE_URL 和資料庫密碼不得被 Git 追蹤。
+- `.streamlit/secrets.toml`、`.env`、`.env.local`、DATABASE_URL 和密碼不得被 Git 追蹤。
 - 錯誤訊息不得包含完整 URL、Authorization header、API Key 或密碼。
 
 ## Milestone Workflow

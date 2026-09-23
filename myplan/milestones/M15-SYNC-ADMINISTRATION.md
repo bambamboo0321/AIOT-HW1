@@ -1,114 +1,142 @@
-# Milestone M15: Python 同步工作程序與管理 (M15-SYNC-ADMINISTRATION.md)
+# Milestone M15: 重新整理、快取與管理員診斷 (M15-SYNC-ADMINISTRATION.md)
 
-本文件為 M15（Python Sync Worker and Administration）之規格骨架。
+本文件為 M15（Refresh, Cache and Admin Diagnostics）之規格骨架。
 
 ---
 
 ## 1. 狀態與基本資訊
 
 *   **Status**: `Planned`
-*   **Objective**: 建立管理員手動同步後台與 Python 同步工作程序 (Sync Worker)，保留並重用已測試之 Python API client 與 parser，受密碼保護執行全臺預報、觀測、空品與紫外線之完整同步；管理同步狀態 (Sync Run Status)、記錄同步歷程中繼資訊、防止重複同步；針對 Worker 託管執行環境進行實測評估（GitHub Actions、Vercel Python Functions、Supabase Edge Functions 皆為候選，實測後決定；初期絕不重寫 Python parser）。
-*   **Dependencies**: M9～M12（各 Python 擷取管道皆已具備）
+*   **Objective**: 建立安全的手動重新整理機制 (Manual Refresh)、快取狀態與時效檢查 (Cache Status & Freshness)、官方最新資料時間戳檢視 (Official Timestamps)、伺服端連線診斷 (Server Fetch Diagnostics) 以及防高頻刷新的冷卻限流機制。**專注於無狀態伺服端快取管理與健康診斷，不做資料庫同步，不做歷史時序累積，不建立 Python 背景工作程序 (Background Worker)**。
+*   **Dependencies**: M7～M14（Next.js 伺服端閘道與前端介面皆已建立）
 
 ---
 
 ## 2. 範疇與非目標 (Scope & Non-Goals)
 
 ### 範圍 (Scope)：
-*   **保留既有 Python Ingestion 成果（決策 D-030）**：
-    *   完整保留現有經過單元測試與 TLS 驗證之 Python API client、parser 與資料清洗模組。
-    *   **初期嚴禁為了適應 Vercel 前端而將 Python parser 全部重寫為 TypeScript**，避免浪費資源與破壞既有穩定度。
-*   **管理員身分驗證與手動觸發（決策 D-007, D-025）**：
-    *   在受保護的管理介面或受保護的 API route 設定密碼驗證，比對伺服端 `ADMIN_PASSWORD`。
-    *   未驗證前，完全鎖定外部同步觸發控制項。
-    *   一鍵手動觸發全流程同步：縣市/鄉鎮預報、地面氣象觀測、雨量、空品 AQI、紫外線與警特報。
-*   **同步狀態與排他鎖（決策 D-006, D-022）**：
-    *   紀錄同步中繼資訊（Sync Run Metadata）：觸發時間、完成時間、各資料集成功筆數、錯誤狀態。
-    *   防止重複同步：實作排他鎖（如 `sync_locks`），同一時間僅允許單一同步作業進行，避免重疊觸發。
-    *   同步若失敗，系統維持保留最近一次成功資料及時間戳，顯示安全錯誤訊息，**絕不默默寫入容器 SQLite**。
-*   **Worker 託管環境候選評估（尚未定案，待實測決定）**：
-    *   **候選 1：GitHub Actions Workflow**（適合多資料源長時間循序抓取，無 Serverless 逾時壓力）。
-    *   **候選 2：Vercel Serverless Functions (Python runtime)**（與前端同平台，但需實測免費方案 10s / Pro 60s 執行上限是否足夠）。
-    *   **候選 3：Supabase Edge Functions / External Container Worker**（近資料庫端，但需評估 runtime 相容性）。
-    *   **要求**：各平台均為候選方案，必須依資料量與網路延遲實測後再行定案，不得在規劃階段假裝已確定。
+*   **安全的手動 Refresh 機制**：
+    *   提供安全、受控的資料更新機制，可清除特定領域（預報、觀測、空品）之伺服端短期快取，強制回源取得官方最新資料。
+    *   若為一般訪客觸發，實作冷卻時間（如 60 秒 Cooldown）與全域 Rate Limit，防止公眾高頻刷爆 CWA/MOENV API 配額。
+    *   若為管理端點，受 `ADMIN_PASSWORD` 保護，提供即時重置快取功能。
+*   **快取狀態與時效呈現 (Cache Status)**：
+    *   在診斷介面或 API Header 提供快取中繼資訊：`X-Cache: HIT | MISS | STALE`、快取生成時間 (`cachedAt`)、過期剩餘時間 (`ttlRemaining`)。
+    *   前端 UI 清楚展示官方實際資料發布時間戳（`officialIssueTime` / `observedAt`），落實決策 D-022 與 D-035。
+*   **伺服端連線診斷 (Server Fetch Diagnostics)**：
+    *   提供安全且脫敏之伺服端健康檢查端點（`/api/diagnostics`）。
+    *   檢測 CWA 與 MOENV 官方端點連線狀態、HTTP 延遲、TLS 握手狀態與錯誤分類。
+    *   診斷日誌嚴格過濾與脫敏，絕不暴露 API Key、授權標頭或敏感路徑。
+*   **高頻刷新防護 (Anti-Abuse / Rate Limiting)**：
+    *   客戶端：按鈕防抖 (Debounce) 與倒數冷卻 UI。
+    *   伺服端：IP / Token 級別的限流機制（如每分鐘最多 5 次強制 refresh 請求）。
 
 ### 非目標 (Non-Goals)：
-*   不在此階段將 Python parser 改寫為 TypeScript（依決策 D-030 保留 Python 實作）。
-*   不預先宣稱任何 Worker 託管平台已確定。
-*   不假裝自動定時排程已完成（排程列為 M17 評估，決策 D-025）。
+*   **不做資料庫同步**：V2 不採用任何持久化資料庫，不進行 DB Ingestion 或 Table Sync（決策 D-033）。
+*   **不做歷史資料保存**：不收集歷史快照（決策 D-036）。
+*   **不建立 Python 背景工作程序**：依決策 D-030，V2 由 Next.js 伺服端按需代理，不建立常駐或排程 Python Worker，除非未來另行專案批准。
+*   **不得依賴快取作為資料可用性唯一保證**：若上游失敗且沒有「實際可讀取」的快取 entry，安全回傳 `unavailable: true`；不得承諾過期項目必可讀取，亦嚴禁偽造假資料或補 0（決策 D-035, D-038, D-040）。
 
 ---
 
 ## 3. 候選資料來源 (Proposed Data Sources)
 
-*   本 Milestone 調度由 M9、M10、M11、M12 所建立之 Python API client 與擷取管道。
+*   本 Milestone 診斷與控制對象為 M7～M12 之 Next.js 伺服端 API Gateway、短期快取模組以及外部 CWA / MOENV 官方端點連線狀況。
 
 ---
 
 ## 4. 規劃儲存結構 (Proposed Storage)
 
-> [!NOTE]
-> 以下中繼表結構為 M15 之規劃方向（Proposed Storage），供同步歷程與排他控制設計參考，非 M7 立即建表指令。
-
-### 表 1：`sync_locks` (同步排他分散式鎖)
-*   `lock_name` (VARCHAR PK - 如 'global_sync_lock')
-*   `locked_at` (TIMESTAMPTZ - 鎖定時間)
-*   `locked_by` (VARCHAR - 觸發來源識別碼)
-*   `expires_at` (TIMESTAMPTZ - 逾時釋放時間，防死鎖)
-
-### 表 2：`sync_run_logs` (同步詳細日誌中繼表)
-*   `log_id` (BIGSERIAL PK)
-*   `sync_run_id` (UUID - 關聯至 `sync_runs.sync_run_id`)
-*   `dataset_id` (VARCHAR - 資料集代碼)
-*   `status` (VARCHAR - 'SUCCESS', 'FAILED', 'SKIPPED')
-*   `records_ingested` (INTEGER - 成功寫入筆數)
-*   `records_skipped` (INTEGER - 重複忽略筆數)
-*   `duration_ms` (INTEGER - 擷取耗時毫秒)
-*   `error_message` (TEXT - 脫敏後之錯誤摘要)
+> [!IMPORTANT]
+> 本架構為 Stateless V2，無任何資料庫儲存。限流與快取狀態透過 M7 實測選定之快取與邊緣介面進行管理，不依賴 Function process 記憶體作為可靠儲存（決策 D-033, D-035, D-040）。
 
 ---
 
-## 5. 驗收標準 (Acceptance Criteria)
+## 5. API 與介面設計 (API & Interface Design)
 
-1.  未輸入正確密碼時，完全無法觸發同步請求。
-2.  輸入正確密碼可觸發手動同步，並能即時查詢同步狀態與進度。
-3.  同步執行成功後，各資料表均能查詢到最新快照時間戳。
-4.  同步發生網路或資料異常時，系統記錄清楚之錯誤提示並保留最近成功數據，絕不產生假成功快照。
-5.  完成 Worker 候選託管環境（GitHub Actions / Vercel Python / Supabase 等）實測報告，確認最佳運行方案。
+### 內部端點規格 1：`POST /api/refresh`
+*   **Headers**:
+    *   `x-admin-password`: 密碼（選填，若有則略過冷卻；若無則受 60s 訪客限流保護）
+*   **Body**:
+    *   `target`: `"all"` | `"forecast"` | `"observations"` | `"air-quality"` | `"uv"`
+*   **Response (200 OK)**:
+    ```typescript
+    interface RefreshResponse {
+      status: "REFRESHED" | "RATE_LIMITED";
+      refreshedAt: string;
+      cooldownSeconds: number;
+      target: string;
+    }
+    ```
+
+### 內部端點規格 2：`GET /api/diagnostics` (受 ADMIN_PASSWORD 保護或脫敏公開)
+*   **Response (200 OK)**:
+    ```typescript
+    interface DiagnosticsResponse {
+      timestamp: string;
+      cwaApi: {
+        reachable: boolean;
+        latencyMs: number;
+        tlsValid: boolean;
+        status: number;
+      };
+      moenvApi: {
+        reachable: boolean;
+        latencyMs: number;
+        tlsValid: boolean;
+        status: number;
+      };
+      cache: {
+        totalKeys: number;
+        forecastAgeSeconds: number | null;
+        observationAgeSeconds: number | null;
+        aqiAgeSeconds: number | null;
+      };
+    }
+    ```
 
 ---
 
-## 6. 安全與防洩密規範 (Security Requirements)
+## 6. 驗收標準 (Acceptance Criteria)
 
-*   `ADMIN_PASSWORD`、`CWA_API_KEY`、`MOENV_API_KEY`、`SUPABASE_SERVICE_ROLE_KEY` 嚴格僅能存在安全伺服端環境，絕不得暴露至公開前端（決策 D-029）。
-*   錯誤日誌自動過濾連線密碼、API Key 等敏感字串。
-
----
-
-## 7. 測試策略 (Test Strategy)
-
-*   單元測試：測試密碼校驗邏輯、同步狀態狀態機運作。
-*   整合測試：模擬同步異常時的錯誤捕獲與最近成功狀態保留機制。
-*   效能基準測試：量測各 API 擷取耗時與 Payload 大小，評估 Worker 託管平台之逾時風險。
+1.  手動 Refresh 功能正常，能在清除快取後觸發向官方 API 重新取得最新資料。
+2.  訪客觸發 Refresh 具有明確冷卻限制（60 秒內無法重複觸發），防止濫用。
+3.  管理診斷端點能精確回傳官方端點連線延遲、TLS 狀態與快取年齡，且所有日誌與回應 100% 脫敏無金鑰。
+4.  無任何資料庫連線、無 migration、無 Python Worker 依賴。
+5.  前端介面正確顯示官方資料發布時間與快取狀態標籤。
+6.  單元與整合測試 100% 通過。
 
 ---
 
-## 8. 風險與應對 (Risks)
+## 7. 安全與防洩密規範 (Security Requirements)
 
-*   **風險**：全臺多圖層資料抓取時間過長，超過 Serverless Function 執行時限 (Timeout)。
-*   **應對**：若實測發現超過 Vercel 限制，優先選用 GitHub Actions Workflow 作為獨立 Worker 執行排程同步。
-
----
-
-## 9. 手動驗收清單 (Manual Verification)
-
-*   [ ] 嘗試以錯誤密碼點擊同步，確認被安全拒絕。
-*   [ ] 輸入正確密碼點擊同步，確認各資料源依序更新並成功寫入 PostgreSQL。
-*   [ ] 模擬斷網情境，確認系統出現安全錯誤提示，且前端仍可檢視最近成功歷史資料。
-*   [ ] 檢核 Worker 候選環境之實測數據與耗時記錄。
+*   `ADMIN_PASSWORD`、`CWA_API_KEY`、`MOENV_API_KEY` 僅留存於伺服端環境變數，絕不出現在診斷回應中。
+*   診斷端點對外暴露時，若未帶管理憑證僅回傳布林值健康狀態（如 `healthy: true`），詳細延遲與快取細節需驗證管理密碼。
 
 ---
 
-## 10. 最終結果 (Final Result)
+## 8. 測試策略 (Test Strategy)
+
+*   限流測試：驗證高頻連續發送 Refresh 請求時，正確觸發 429 Too Many Requests 或冷卻阻絕。
+*   快取刷新測試：驗證在 Cache Hit 狀態下呼叫 Refresh 後，下一次讀取正確觸發 Fetch 並更新快取。
+*   診斷脫敏測試：檢查診斷回應與伺服端 Console 日誌，驗證零金鑰、零 Authorization Header。
+
+---
+
+## 9. 風險與應對 (Risks)
+
+*   **風險**：惡意使用者利用 Refresh 端點發動大量請求導致伺服端向官方 API 發動 DoS。
+*   **應對**：伺服端設置全域與 IP 級別嚴格 Rate Limiter，必要時啟用 Cloudflare / Vercel WAF 防護。
+
+---
+
+## 10. 手動驗收清單 (Manual Verification)
+
+*   [ ] 點擊介面上之手動重新整理按鈕，確認資料時間戳更新，且按鈕進入 60 秒冷卻狀態。
+*   [ ] 快速連續點擊或發送 Refresh 請求，確認後續請求被伺服端安全攔截。
+*   [ ] 檢核診斷端點，確認 CWA 與 MOENV 連線檢測正確，無敏感資訊洩漏。
+
+---
+
+## 11. 最終結果 (Final Result)
 
 *(此處待 M15 實作與驗收完成後填寫)*

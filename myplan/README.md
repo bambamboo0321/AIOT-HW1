@@ -10,30 +10,30 @@
 ```
 myplan/
 ├── README.md                               # 規劃庫說明、文件權威性與工作流程規範（本文件）
-├── FLOW.md                                 # 系統資料流架構（資料同步管道、Next.js+Vercel公開網站、雙軌平行動態遷移）與開發交付流程
-├── ROADMAP.md                              # 里程碑狀態總表與目前進度（M1 至 M17）
-├── DECISIONS.md                            # 架構與產品決策紀錄 (ADR，含 D-001 至 D-032)
-├── DATA_SOURCES.md                         # 外部 API、資料集 ID、資料語意與 Secrets 映射規範
+├── FLOW.md                                 # 系統資料流架構（Stateless Vercel V2 閘道資料流、快取合約、公開網站與雙軌平行動態遷移）與開發交付流程
+├── ROADMAP.md                              # 里程碑狀態總表與目前進度（M1 至 M17，V2 為 Stateless Vercel 架構）
+├── DECISIONS.md                            # 架構與產品決策紀錄 (ADR，含 D-001 至 D-041)
+├── DATA_SOURCES.md                         # 外部 API、資料集 ID、資料語意與 Secrets 映射規範 (Vercel Server-only)
 └── milestones/                             # 個別 Milestone 之詳細設計、實作計畫與驗收紀錄
-    ├── M1-M6-SUMMARY.md                    # M1～M6 已完成功能、模組、測試與部署總結
-    ├── M7-CLOUD-DATABASE.md                # M7 雲端資料庫基礎 (Cloud Data Foundation)
-    ├── M8-GEOGRAPHIC-DISCOVERY.md          # M8 地理資訊登記與 CWA 資料集探勘
-    ├── M9-FORECAST-INGESTION.md            # M9 縣市與鄉鎮完整預報資料擷取
-    ├── M10-WEATHER-OBSERVATIONS.md         # M10 即時地面氣象觀測
-    ├── M11-AIR-QUALITY.md                  # M11 環境部空氣品質 AQI
-    ├── M12-UV-AND-ALERTS.md                # M12 紫外線與氣象警特報
-    ├── M13-QUERY-AND-AGGREGATION.md        # M13 Supabase 查詢合約與分級彙整 (Supabase Query Contract and Aggregation)
-    ├── M14-PROGRESSIVE-MAP.md              # M14 Next.js 漸進式多圖層地圖 UI (Next.js Progressive Multi-Layer Map UI)
-    ├── M15-SYNC-ADMINISTRATION.md          # M15 Python 同步工作程序與管理 (Python Sync Worker and Administration)
+    ├── M1-M6-SUMMARY.md                    # M1～M6 已完成功能、模組、測試與部署總結 (Legacy Streamlit V1)
+    ├── M7-SERVER-DATA-GATEWAY.md           # M7 Vercel Web 基礎與伺服端資料閘道 (Vercel Web Foundation and Server Data Gateway)
+    ├── M8-GEOGRAPHIC-DISCOVERY.md          # M8 地理資訊登記與 CWA 資料集探勘 (Geographic Registry & CWA Dataset Discovery)
+    ├── M9-FORECAST-INGESTION.md            # M9 縣市與鄉鎮預報 API (County and Township Forecast API)
+    ├── M10-WEATHER-OBSERVATIONS.md         # M10 即時氣象觀測 API (Real-Time Weather Observation API)
+    ├── M11-AIR-QUALITY.md                  # M11 環境部空氣品質 API (MOENV Air Quality API)
+    ├── M12-UV-AND-ALERTS.md                # M12 紫外線與氣象警特報 API (UV and Weather Alerts API)
+    ├── M13-QUERY-AND-AGGREGATION.md        # M13 統一 API 合約與分級彙整 (Unified API Contract and Aggregation)
+    ├── M14-PROGRESSIVE-MAP.md              # M14 漸進式多圖層地圖 UI (Progressive Multi-Layer Map UI)
+    ├── M15-SYNC-ADMINISTRATION.md          # M15 重新整理、快取與管理員診斷 (Refresh, Cache and Admin Diagnostics)
     ├── M16-DEPLOYMENT-PERFORMANCE.md       # M16 Vercel 遷移、效能與無障礙優化 (Vercel Migration, Performance and Accessibility)
-    └── M17-OPTIONAL-LAYERS.md              # M17 選配進階圖層 (Optional)
+    └── M17-OPTIONAL-LAYERS.md              # M17 選配持久化與進階圖層 (Optional Persistence and Advanced Layers)
 ```
 
 ### 文件責任邊界
-*   **[FLOW.md](FLOW.md)**：負責定義後端資料同步管道（外部 API 至 Supabase）、公開網站管道（Supabase 至 Next.js + Vercel），以及平行雙軌遷移機制與交付流程。
+*   **[FLOW.md](FLOW.md)**：負責定義 Stateless Vercel V2 伺服端資料閘道架構（瀏覽器呼叫 Next.js Server Route Handlers 代理官方 API、Schema 驗證、短期快取、免永久資料庫），以及 Legacy Streamlit V1 與 Vercel V2 平行雙軌運作機制與交付流程。
 *   **[ROADMAP.md](ROADMAP.md)**：負責追蹤專案自 M1 至 M17 的整體進度，作為狀態盤點的唯一依據。
 *   **[DECISIONS.md](DECISIONS.md)**：負責記錄不可輕易變更的關鍵架構、技術與產品決策 (ADR)。
-*   **[DATA_SOURCES.md](DATA_SOURCES.md)**：負責按狀態（Verified / Candidate / Must Research / Deprecated）登記所有外部資料源、更新頻率、Secrets 權限邊界與欄位解析限制。
+*   **[DATA_SOURCES.md](DATA_SOURCES.md)**：負責按狀態（Verified / Candidate / Must Research / Deprecated）登記所有外部資料源、更新頻率、Secrets 權限邊界 (Vercel Server-only) 與欄位解析限制。
 *   **[milestones/](milestones/)**：負責承載各階段專案的任務範圍、驗收條件、測試策略與回退方案。
 
 ---
@@ -89,14 +89,13 @@ myplan/
 
 ### 必須停止並獲得使用者明確授權之操作（高風險/外部影響）：
 *   執行 `git commit` 或 `git push`。
-*   執行分支 `merge`、`rebase`、`force push`。
+*   執行分支 `merge`、`rebase`、`force push` 或改寫 Git history。
 *   建立或連接 Vercel Project、修改 Vercel Environment Variables、執行正式部署或更動網域。
 *   停止或刪除現有 Streamlit App。
-*   修改 Supabase RLS 或正式 migration。
+*   未來若要引入 PostgreSQL、Supabase、Neon 等永久雲端資料庫。
 *   刪除或覆蓋使用者現存的正式資料。
-*   修改真實的 `.streamlit/secrets.toml`、`.env` 或變更系統環境變數中的真實憑證。
+*   修改真實的 `.streamlit/secrets.toml`、`.env`、`.env.local` 或變更系統環境變數中的真實憑證。
 *   顯示、搬移、打印或記錄任何真實 API Key。
-*   建立或修改 Supabase、Google Cloud、Vercel 等外部雲端服務之付費或正式資源。
-*   對正式雲端資料庫寫入測試髒資料。
+*   建立或修改任何外部雲端服務之付費或正式資源。
 *   大幅改變在 `DECISIONS.md` 中已被標註為 `Accepted` 的核心產品或架構決策。
 *   操作路徑超出 `AIOT-HW1` 儲存庫根目錄。

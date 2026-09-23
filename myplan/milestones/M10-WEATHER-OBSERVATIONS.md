@@ -1,56 +1,50 @@
-# Milestone M10: 即時地面氣象觀測 (M10-WEATHER-OBSERVATIONS.md)
+# Milestone M10: 即時氣象觀測 API (M10-WEATHER-OBSERVATIONS.md)
 
-本文件為 M10（Real-Time Weather Observations）之規格骨架。
+本文件為 M10（Real-Time Weather Observation API）之規格骨架。
 
 ---
 
 ## 1. 狀態與基本資訊
 
 *   **Status**: `Planned`
-*   **Objective**: 驗證並串接 CWA 地面即時觀測資料集（`O-A0003-001` 綜觀氣象觀測與 `O-A0002-001` 雨量觀測），擷取全臺氣象測站之溫度、濕度、氣壓、風向、風速、陣風與雨量，建立測站座標與行政區關聯，將觀測資料寫入 Supabase PostgreSQL。
-*   **Dependencies**: M7 (Cloud Data Foundation), M8 (Geographic Registry & CWA Dataset Discovery)
+*   **Objective**: 實測驗證並串接 CWA 地面即時觀測資料集（`O-A0003-001` 綜觀氣象觀測與候選 `O-A0002-001` 雨量觀測），建立 Next.js Server Route Handler 端點（`/api/observations`），提供全臺最新地面測站觀測（氣溫、相對濕度、氣壓、風向、風速、陣風）與最新雨量，包含測站 Metadata 與座標。實作官方缺值 sentinel 轉換與短期快取 (Short-Term Cache)，**不保存長期時序，不寫入任何永久資料庫**。
+*   **Dependencies**: M7 (Vercel Server Data Gateway Foundation), M8 (Geographic Registry & CWA Dataset Discovery)
 
 ---
 
 ## 2. 範疇與非目標 (Scope & Non-Goals)
 
 ### 範圍 (Scope)：
-*   **M10 實測驗證清單**：
-    *   真實 top-level JSON keys
-    *   station list 路徑
+*   **M10 實測驗證清單（官方真實 API 調查）**：
+    *   真實 top-level JSON keys 與 station list 路徑
     *   StationId / StationName 真實欄位名稱
     *   ObsTime 真實格式與時區轉換 (UTC+8)
     *   GeoInfo 結構 (經緯度、海拔等)
-    *   WeatherElement 真實欄位
-    *   特殊缺值標記（例如 `-99`、`-999` 或其他官方 sentinel）
-    *   各測站缺少欄位時的容錯行為
-    *   同一測站同一 `observed_at` 的重複更新政策
-    *   API response 體積大小與全臺總測站數量評估
-    *   官方實際更新頻率與延遲
-    *   TLS / `certifi` 連線與憑證行為（決策 D-009）
-    *   確保 API Key 絕不出現在 URL、日誌或錯誤訊息中
+    *   WeatherElement 真實欄位與數值結構
+    *   官方特殊缺值 sentinel（例如 `-99`、`-999` 或其他缺測標記）
+    *   各測站缺少部分要素時之容錯行為
+    *   API response 體積大小與全臺總測站數量評估（用於評估快取策略）
+    *   官方實際更新頻率與延遲情況
 *   **資料語意分離（決策 D-021, D-023）**：
-    *   Forecast 是行政區預報、Observation 是測站實測、Rain station 是雨量測站實測。
-    *   測站觀測數值只代表測站本身，嚴禁直接標示成整個縣市或鄉鎮的精確實況。
-*   **缺值處理規範**：
-    *   官方缺值或異常 sentinel 必須轉換為 SQL `NULL`。
-    *   以 `quality_status` 欄位保留缺值或異常原因。
-    *   嚴禁將 `-99` 當成真實氣象數值，嚴禁補成 `0`，缺值不得參與任何數值彙整。
-*   **重複資料與唯一約束策略**：
-    *   規劃建議唯一條件：`UNIQUE (source_dataset, station_id, observed_at)`。
-    *   同步完全相同觀測時不得建立重複列。
-    *   是否對同一 `observed_at` 使用 `ON CONFLICT DO UPDATE`，必須待 M10 驗證官方資料更正行為後決定，不得在規劃階段假裝已確定。
-*   **資料量與查詢規劃（決策 D-020, D-024）**：
-    *   每 10 分鐘更新之觀測資料會快速累積，查詢必須規劃 `(station_id, observed_at)` 索引。
-    *   UI 預設只讀取最新觀測；歷史查詢必須限制時間範圍。
-    *   嚴禁一次傳送所有測站完整歷史到瀏覽器。
-    *   Retention（資料保留週期）與 Downsampling（降頻取樣）延後至 M16 或 M17 決策，M10 不擅自刪除資料。
+    *   測站觀測 (Observation) 僅代表特定經緯度測站之實測讀數，嚴禁直接宣稱為整個縣市或鄉鎮之實況。
+    *   雨量測站網獨立標記為雨量專用，與綜觀氣象站明確區分。
+*   **缺值防護與正規化**：
+    *   官方缺值 sentinel（如 `-99`、`-999`）強制轉換為 `null`，**嚴格禁止填補 0**。
+    *   無效數值不得參與任何平均計算。
+*   **Server Route Handler 實作（決策 D-034）**：
+    *   實作 `/api/observations` 端點，由伺服端持 `CWA_API_KEY` 代理取得資料。
+    *   支援按縣市 (`county`) 或經緯度 Viewport 空間範圍進行過濾。
+*   **短期快取策略（決策 D-035）**：
+    *   全臺最新觀測資料於伺服端快取 5～15 分鐘。
+    *   快取記載 `cachedAt` 與官方 `observedAt`，提供客戶端時間戳標示。
+*   **上游連線失敗行為（決策 D-038）**：
+    *   若 CWA API 暫時逾時或失敗且無可用快取，回傳 `unavailable: true` 與安全錯誤代碼，嚴禁顯示假資料或偽造假觀測時間。
 
 ### 非目標 (Non-Goals)：
-*   不將預報與即時觀測混在同一張表（依決策 D-021 語意分離）。
-*   不在此階段整合空氣品質（由 M11 負責）或紫外線（由 M12 負責）。
-*   不在此階段開發前端地圖視覺化（由 M14 負責）。
-*   不在 M10 擅自執行資料刪除或 Downsampling（留待 M16/M17 決策）。
+*   **不寫入任何資料庫**：不建立 `weather_stations` 或 `weather_observations` 資料表（決策 D-033）。
+*   **不保存長期觀測時序**：不進行跨天歷史時序留存或累積分析（決策 D-036）。
+*   **不混淆預報與觀測**：兩者端點與資料模型嚴格分離（決策 D-021）。
+*   **不在此階段開發前端地圖視覺化**：留待 M14 處理。
 
 ---
 
@@ -58,99 +52,134 @@
 
 *   **`O-A0003-001`**（氣象觀測站－10分鐘綜觀氣象資料）：
     *   來源：CWA（中央氣象署）
-    *   狀態：Official dataset verified；Response schema status: Must verify with live API during M10
-    *   用途：即時地面測站氣象觀測
-    *   預期欄位清單（待 M10 真實驗證，非保證全部具備）：station identifier、station name、observation time、latitude/longitude、elevation、temperature、relative humidity、pressure、wind speed、wind direction、gust、precipitation、weather/visibility fields、source quality/missing-value indicators。
+    *   狀態：Official dataset verified；Response schema 於本階段透過 live API 進行驗證。
+    *   用途：即時地面測站氣象觀測（溫度、濕度、氣壓、風速、陣風等）。
 *   **`O-A0002-001`**（雨量觀測站－雨量資料）：
     *   來源：CWA（中央氣象署）
-    *   狀態：Candidate / Must verify with live API
-    *   用途：提供更密集之雨量測站網擴充
+    *   狀態：Candidate；提供更密集之雨量測站網擴充。
 
 ---
 
 ## 4. 規劃儲存結構 (Proposed Storage)
 
-> [!NOTE]
-> 以下欄位結構為 M10 之規劃方向（Proposed Storage），供資料模型設計參考，**非 M7 立即建表指令**。
+> [!IMPORTANT]
+> 本架構為 Stateless V2，無任何永久資料庫表。觀測資料僅在 M7 快取介面中短暫暫存，不依賴 Function process 記憶體作為可靠儲存（決策 D-033, D-035, D-040）。
 
-### 表 1：`weather_stations` (測站主檔表)
-*   `station_id` (VARCHAR, PK 部分)
-*   `source_dataset` (VARCHAR, PK 部分 - 如 'O-A0003-001', 'O-A0002-001')
-*   `station_name` (VARCHAR)
-*   `latitude` (NUMERIC)
-*   `longitude` (NUMERIC)
-*   `elevation` (NUMERIC)
-*   `county` (VARCHAR)
-*   `township` (VARCHAR)
-*   `station_type` (VARCHAR)
-*   `is_active` (BOOLEAN)
-*   `metadata_updated_at` (TIMESTAMPTZ)
-
-### 表 2：`weather_observations` (觀測時序表)
-*   `station_id` (VARCHAR)
-*   `source_dataset` (VARCHAR)
-*   `observed_at` (TIMESTAMPTZ)
-*   `temperature` (NUMERIC, 攝氏度)
-*   `relative_humidity` (NUMERIC, 百分比 0~100)
-*   `pressure` (NUMERIC, 百帕 hPa)
-*   `wind_speed` (NUMERIC, 公尺/秒)
-*   `wind_direction` (NUMERIC, 角度 0~360)
-*   `gust_speed` (NUMERIC, 最大瞬間風公尺/秒)
-*   `precipitation` (NUMERIC, 累積降水量 mm)
-*   `weather` (VARCHAR, 天氣現象描述)
-*   `visibility` (NUMERIC, 能見度公里)
-*   `sunshine_duration` (NUMERIC, 日照時數)
-*   `quality_status` (VARCHAR, 缺值或異常代碼保留)
-*   `ingested_at` (TIMESTAMPTZ, 入庫時間)
-*   **約束與索引規劃**：
-    *   `UNIQUE (source_dataset, station_id, observed_at)`
-    *   索引：`(station_id, observed_at DESC)`, `(observed_at DESC)`
+### 伺服端短期快取結構 (Cache Entry)
+*   `cacheKey`: `observations:latest`
+*   `initialCandidateTtl`: 300 ～ 900 秒 (5～15 分鐘，此為 Initial Candidate TTL，最終 TTL 依官方觀測每 10 分鐘更新頻率、API response headers 與 freshness 需求決定。**特別要求：Observation cache 不得將舊資料標示為即時，UI 必須顯示實際觀測時間**。)
+*   `payload`:
+    *   `datasetId`: `"O-A0003-001"`
+    *   `sourceTimestamp`: 官方觀測資料發布時間戳 (UTC+8 ISO8601)
+    *   `fetchedTimestamp`: 快取或擷取時間戳 (UTC+8 ISO8601)
+    *   `freshness`: `"fresh" | "stale" | "unavailable"`
+    *   `stations`: 測站最新觀測清單
 
 ---
 
-## 5. 驗收標準 (Acceptance Criteria)
+## 5. API 與介面設計 (API & Interface Design)
 
-1.  成功完成即時觀測 API 之真實連線與資料驗證，落實 M10 驗證清單。
-2.  氣象測站基本資料（代碼、名稱、經緯度、行政區）與時序觀測值完整入庫。
-3.  溫度、濕度、氣壓、風速、陣風與雨量欄位正確解析，`-99` 等異常值正確轉換為 SQL `NULL`，絕無補 `0`。
-4.  重複寫入策略符合規範，不建立重複資料列。
-5.  解析與寫入測試 100% 通過。
+### 內部端點規格：`GET /api/observations`
+*   **Query Parameters**:
+    *   `county`: 縣市名稱（選填，過濾特定縣市測站）
+    *   `bbox`: `minLng,minLat,maxLng,maxLat`（選填，空間視角過濾）
+*   **Response (200 OK)**:
+    ```typescript
+    interface ObservationsApiResponse {
+      success: true;
+      data: {
+        stations: Array<{
+          stationId: string;
+          stationName: string;
+          county: string;
+          township: string;
+          latitude: number;
+          longitude: number;
+          elevation: number | null;
+          observedAt: string;          // 測站實際觀測時間 (UTC+8，UI 必須顯示此資料時間)
+          temperature: number | null;
+          relativeHumidity: number | null;
+          pressure: number | null;
+          windSpeed: number | null;
+          windDirection: number | null;
+          gustSpeed: number | null;
+          precipitation: number | null;
+          weatherDescription: string | null;
+          qualityStatus: string | null; // 缺測或異常註記
+        }>;
+      };
+      meta: {
+        sourceTimestamp?: string;  // 官方觀測時間戳 (ISO8601 UTC+8)
+        fetchedTimestamp: string;  // 伺服端請求或快取命中時間戳 (ISO8601 UTC+8)
+        freshness: "fresh" | "stale" | "unavailable"; // 明確定義：fresh 為 TTL 內有效，stale 為上游失敗但仍有實際可讀取之過期快取
+        cacheStatus?: "HIT" | "MISS" | "STALE" | "BYPASS";
+      };
+    }
+    ```
+*   **Response (503 / 504 Unavailable)**:
+    ```typescript
+    interface ObservationsErrorResponse {
+      success: false;
+      data: null;
+      error: {
+        message: string;
+        code: "UPSTREAM_TIMEOUT" | "UPSTREAM_ERROR" | "RATE_LIMITED" | "UNAVAILABLE";
+        unavailable: true;
+      };
+      meta: {
+        fetchedTimestamp: string;
+        freshness: "unavailable";
+      };
+    }
+    ```
 
 ---
 
-## 6. 安全與 TLS 規範 (Security Requirements)
+## 6. 驗收標準 (Acceptance Criteria)
 
-*   API client 必須獨立執行 TLS 憑證與連線測試，禁止使用 `verify=False`（決策 D-009）。
-*   金鑰讀取嚴格限於 Secrets / 環境變數，禁止寫入原始碼、日誌或錯誤訊息，測試一律使用假金鑰。
-
----
-
-## 7. 測試策略 (Test Strategy)
-
-*   單元測試：測試各類型測站之欄位多樣性與缺失值轉換（含 `-99` 轉 NULL）。
-*   整合測試：測試時序觀測寫入，驗證複合唯一約束 `UNIQUE (source_dataset, station_id, observed_at)`。
-*   邊界測試：測試特定測站缺少部分氣象要素（如無能見度或無日照）時的寬容處理。
+1.  落實 M10 實測驗證清單，確認 CWA 觀測端點之真實 JSON 結構與測站欄位對應。
+2.  Route Handler 回傳全臺即時測站之氣溫、濕度、氣壓、風速、陣風與雨量數值，且包含 `sourceTimestamp`、`fetchedTimestamp` 與 `freshness`。
+3.  官方 `-99`、`-999` 等 sentinel 數值正確轉換為 `null`，嚴禁被替代為 `0`。
+4.  資料庫無任何連線或持久化儲存邏輯。
+5.  短期快取正常運作，候選 TTL 內重複呼叫直接命中快取，不重打 CWA API。
+6.  外部 API 連線失敗且無實際可讀取快取時，安全回傳 `freshness: "unavailable"`，絕不將舊資料偽裝成即時。
+7.  單元與 Mock 測試 100% 通過。
 
 ---
 
-## 8. 風險與應對 (Risks)
+## 7. 安全與 TLS 規範 (Security Requirements)
 
-*   **風險 1**：部分高山或無人測站通訊不穩，可能回傳異常字串或頻繁缺值。
-    *   **應對**：強型別防禦解析，任何無法轉型的數值一律記錄於 `quality_status` 並將數值欄位置為 `NULL`。
-*   **風險 2**：高頻觀測數據累積迅速，查詢過慢。
-    *   **應對**：預設僅查詢最新觀測，建立複合索引，留待 M16/M17 評估保留政策。
-
----
-
-## 9. 手動驗收清單 (Manual Verification)
-
-*   [ ] 執行同步作業，確認地面測站與觀測數據成功寫入 PostgreSQL。
-*   [ ] 檢核氣溫、濕度、氣壓、風向、風速、陣風與雨量欄位齊全。
-*   [ ] 驗證故障測站之數值為 NULL，未被錯誤轉為 0。
-*   [ ] 驗證重複同步同一觀測時不產生重複列。
+*   `CWA_API_KEY` 僅留存於伺服端，不得出現在 Response、Header 或客戶端日誌中。
+*   伺服端連線維持 TLS 憑證驗證，嚴禁關閉安全檢查。
+*   測試嚴格使用 Mock 資料，不消耗正式 API 配額。
 
 ---
 
-## 10. 最終結果 (Final Result)
+## 8. 測試策略 (Test Strategy)
+
+*   單元測試：測試各類型測站之欄位多樣性與缺失值轉換（含 `-99` 轉 null）。
+*   空間過濾測試：驗證 `county` 與 `bbox` 參數能正確篩選測站子集。
+*   Mock 整合測試：驗證 Route Handler 於快取過期前與過期後的呼叫行為。
+*   異常情境測試：模擬 CWA API 逾時或回傳 5xx，確認安全錯誤與 `unavailable: true` 格式。
+
+---
+
+## 9. 風險與應對 (Risks)
+
+*   **風險**：全臺測站總數較多（數百個），單次 JSON 體積較大。
+*   **應對**：伺服端快取單一全臺原始資料，由伺服端依照客戶端 `county` 或 `bbox` 參數快速過濾後再回傳精簡子集。
+
+---
+
+## 10. 手動驗收清單 (Manual Verification)
+
+*   [ ] 呼叫 `/api/observations`，確認能取得全臺測站清單。
+*   [ ] 檢查測站經緯度、溫度、濕度與雨量欄位正確對應。
+*   [ ] 檢核故障測站數值為 null，未被填補 0。
+*   [ ] 驗證連續請求正常命中短期快取。
+
+---
+
+## 11. 最終結果 (Final Result)
 
 *(此處待 M10 實作與驗收完成後填寫)*
