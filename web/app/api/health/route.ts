@@ -12,6 +12,7 @@ export async function GET() {
   return NextResponse.json(responsePayload, {
     status: 200,
     headers: {
+      "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store, max-age=0",
     },
   });

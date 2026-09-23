@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
  */
 export const FORECAST_CACHE_CONTROL = "public, max-age=300, s-maxage=600, stale-while-revalidate=1800";
 export const ERROR_CACHE_CONTROL = "no-store, max-age=0";
+export const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
 
 export async function GET() {
   try {
@@ -23,6 +24,7 @@ export async function GET() {
     return NextResponse.json(createSuccessResponse(data), {
       status: 200,
       headers: {
+        "Content-Type": JSON_CONTENT_TYPE,
         "Cache-Control": FORECAST_CACHE_CONTROL,
       },
     });
@@ -31,6 +33,7 @@ export async function GET() {
       return NextResponse.json(err.toApiResponse(), {
         status: err.statusCode,
         headers: {
+          "Content-Type": JSON_CONTENT_TYPE,
           "Cache-Control": ERROR_CACHE_CONTROL,
         },
       });
@@ -42,6 +45,7 @@ export async function GET() {
       {
         status: 500,
         headers: {
+          "Content-Type": JSON_CONTENT_TYPE,
           "Cache-Control": ERROR_CACHE_CONTROL,
         },
       }

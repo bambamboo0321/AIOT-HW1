@@ -251,11 +251,12 @@ describe("CWA Client & Normalizer", () => {
         },
       };
 
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => mockCwaJson,
-      } as unknown as Response);
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(mockCwaJson), {
+          status: 200,
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+        })
+      );
 
       const result = await fetchCwaForecast({
         apiKey: "test-valid-cwa-key",
@@ -302,10 +303,9 @@ describe("CWA Client & Normalizer", () => {
 
     it("throws UpstreamError on 401 without leaking API key in error message", async () => {
       const secretKey = "super-secret-cwa-key-9999";
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 401,
-      } as unknown as Response);
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response("Unauthorized", { status: 401 })
+      );
 
       try {
         await fetchCwaForecast({
@@ -323,19 +323,17 @@ describe("CWA Client & Normalizer", () => {
     });
 
     it("throws UpstreamError on 429 rate limit and 500 server error", async () => {
-      const mockFetch429 = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 429,
-      } as unknown as Response);
+      const mockFetch429 = vi.fn().mockResolvedValue(
+        new Response("Too Many Requests", { status: 429 })
+      );
 
       await expect(
         fetchCwaForecast({ apiKey: "key", fetchFn: mockFetch429 })
       ).rejects.toThrow(UpstreamError);
 
-      const mockFetch500 = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-      } as unknown as Response);
+      const mockFetch500 = vi.fn().mockResolvedValue(
+        new Response("Server Error", { status: 500 })
+      );
 
       await expect(
         fetchCwaForecast({ apiKey: "key", fetchFn: mockFetch500 })
@@ -343,13 +341,12 @@ describe("CWA Client & Normalizer", () => {
     });
 
     it("throws ParseError on invalid JSON response", async () => {
-      const mockFetchInvalidJson = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => {
-          throw new SyntaxError("Unexpected token < in JSON at position 0");
-        },
-      } as unknown as Response);
+      const mockFetchInvalidJson = vi.fn().mockResolvedValue(
+        new Response("<html>Invalid JSON</html>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        })
+      );
 
       await expect(
         fetchCwaForecast({ apiKey: "key", fetchFn: mockFetchInvalidJson })

@@ -10,11 +10,12 @@ import {
 describe("Safe Server HTTP Client", () => {
   it("successfully retrieves and parses JSON with injected fetch", async () => {
     const mockData = { temperature: 25.5, station: "Taipei" };
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => mockData,
-    } as unknown as Response);
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(mockData), {
+        status: 200,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      })
+    );
 
     const result = await safeGetJson<typeof mockData>(
       "https://example.com/api/test",
@@ -94,12 +95,12 @@ describe("Safe Server HTTP Client", () => {
       stack: "InternalException at server.ts:42",
     });
 
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 401,
-      text: async () => sensitiveRawBody,
-      json: async () => JSON.parse(sensitiveRawBody),
-    } as unknown as Response);
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(sensitiveRawBody, {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
 
     try {
       await safeGetJson("https://example.com/cwa-data", {
@@ -130,10 +131,9 @@ describe("Safe Server HTTP Client", () => {
   });
 
   it("throws UpstreamError on upstream 429 Rate Limit", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 429,
-    } as unknown as Response);
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response("Too Many Requests", { status: 429 })
+    );
 
     await expect(
       safeGetJson("https://example.com/cwa", { fetchFn: mockFetch })
@@ -141,10 +141,9 @@ describe("Safe Server HTTP Client", () => {
   });
 
   it("throws UpstreamError on upstream 500 Server Error", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-    } as unknown as Response);
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response("Internal Server Error", { status: 500 })
+    );
 
     await expect(
       safeGetJson("https://example.com/cwa", { fetchFn: mockFetch })
@@ -152,13 +151,12 @@ describe("Safe Server HTTP Client", () => {
   });
 
   it("throws ParseError when response is not valid JSON", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => {
-        throw new SyntaxError("Unexpected token '<'");
-      },
-    } as unknown as Response);
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response("<html><body>Not JSON</body></html>", {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      })
+    );
 
     await expect(
       safeGetJson("https://example.com/html-endpoint", { fetchFn: mockFetch })
@@ -172,6 +170,78 @@ describe("Safe Server HTTP Client", () => {
       expect(parseErr.code).toBe("PARSE_ERROR");
       expect(parseErr.statusCode).toBe(502);
       expect(parseErr.toApiResponse().error.code).toBe("PARSE_ERROR");
+    }
+  });
+
+  it("correctly parses valid Traditional Chinese UTF-8 bytes into structured JSON", async () => {
+    const payload = {
+      location: "臺北市",
+      elements: ["最低溫度", "最高溫度"],
+      description: "全臺灣各縣市預報",
+    };
+    const utf8Bytes = new TextEncoder().encode(JSON.stringify(payload));
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(utf8Bytes, {
+        status: 200,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      })
+    );
+
+    const result = await safeGetJson<typeof payload>("https://example.com/chinese", {
+      fetchFn: mockFetch,
+    });
+
+    expect(result).toEqual(payload);
+    expect(result.location).toBe("臺北市");
+    expect(result.elements).toContain("最低溫度");
+    expect(result.elements).toContain("最高溫度");
+    expect(result.description).toBe("全臺灣各縣市預報");
+  });
+
+  it("throws ParseError on invalid UTF-8 bytes and does NOT silently convert to U+FFFD", async () => {
+    // Construct bytes with invalid UTF-8 sequence [0xFF, 0xFE]
+    const invalidBytes = new Uint8Array([0x7B, 0x22, 0x6B, 0x22, 0x3A, 0x22, 0xFF, 0xFE, 0x22, 0x7D]);
+
+    // Demonstrate that fatal: false produces U+FFFD while fatal: true throws TypeError
+    const nonFatalDecoder = new TextDecoder("utf-8", { fatal: false });
+    expect(nonFatalDecoder.decode(invalidBytes)).toContain("\uFFFD");
+
+    const fatalDecoder = new TextDecoder("utf-8", { fatal: true });
+    expect(() => fatalDecoder.decode(invalidBytes)).toThrow(TypeError);
+
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(invalidBytes, {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    // safeGetJson must throw ParseError, never silently returning U+FFFD
+    await expect(
+      safeGetJson("https://example.com/invalid-utf8", { fetchFn: mockFetch })
+    ).rejects.toThrow(ParseError);
+
+    try {
+      await safeGetJson("https://example.com/invalid-utf8", { fetchFn: mockFetch });
+      expect.unreachable();
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(ParseError);
+      const parseErr = err as ParseError;
+      expect(parseErr.code).toBe("PARSE_ERROR");
+      expect(parseErr.statusCode).toBe(502);
+
+      // Verify the public error response does NOT contain raw bytes or stack traces
+      const apiResp = parseErr.toApiResponse();
+      expect(apiResp.ok).toBe(false);
+      expect(apiResp.error.code).toBe("PARSE_ERROR");
+      expect(apiResp.error.message).toBe("Invalid JSON response received from upstream service.");
+
+      const serialized = JSON.stringify(apiResp);
+      expect(serialized).not.toContain("255");
+      expect(serialized).not.toContain("254");
+      expect(serialized).not.toContain("0xFF");
+      expect(serialized).not.toContain("\uFFFD");
+      expect(serialized).not.toContain("stack");
     }
   });
 });

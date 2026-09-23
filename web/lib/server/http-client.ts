@@ -4,7 +4,8 @@
  * Designed for server-side upstream API fetching.
  * Features:
  * - Native fetch with AbortController timeout
- * - Injectable fetch for deterministic unit testing
+ * - Explicit UTF-8 TextDecoder with { fatal: true } decoding of byte streams before JSON.parse
+ * - Injected fetch for deterministic unit testing with standard Response objects
  * - Classified error throwing (TimeoutError, NetworkError, UpstreamError, ParseError)
  * - Raw upstream bodies, query strings, headers, and credentials are NEVER exposed in errors
  * - Default no auto-retry to prevent amplified traffic
@@ -27,6 +28,7 @@ export interface SafeGetOptions {
 
 /**
  * Performs a safe GET request and parses the JSON response.
+ * Strictly decodes response byte streams with UTF-8 TextDecoder to prevent mojibake.
  *
  * @param url Full target URL
  * @param options Timeout, custom headers, and optional fetch implementation injection
@@ -71,7 +73,9 @@ export async function safeGetJson<T>(
   }
 
   try {
-    return (await response.json()) as T;
+    const buffer = await response.arrayBuffer();
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    return JSON.parse(text) as T;
   } catch {
     throw new ParseError();
   }

@@ -7,6 +7,7 @@
  * Security & Design Rules:
  * - Server-only execution check
  * - Authorization key ONLY placed in request header, NEVER in URL query
+ * - Explicit UTF-8 charset requested and enforced
  * - Normalizes ~685 KB raw response to clean, sorted ~15 KB schema
  * - Dynamic element discovery ("最低溫度" and "最高溫度") with StartTime+EndTime pairing
  * - Invalid temperatures converted to null, never default to 0
@@ -254,7 +255,7 @@ export async function fetchCwaForecast(
   const url = `${CWA_API_BASE_URL}/${CWA_FORECAST_DATASET_ID}`;
   const headers = {
     Authorization: apiKey,
-    Accept: "application/json",
+    Accept: "application/json; charset=utf-8",
     "User-Agent": "AIOT-HW1-Weather-Dashboard-V2/1.0",
   };
 
