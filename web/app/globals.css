@@ -836,3 +836,188 @@ body {
   font-size: 0.775rem;
   color: #475569;
 }
+
+/* Current Weather Observation Card */
+.current-weather-card {
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.current-header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+@media (min-width: 768px) {
+  .current-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+}
+
+.current-badge-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.badge-obs {
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent-sky);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  font-size: 0.725rem;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  font-size: 0.725rem;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+.station-name-sub {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--accent-sky);
+  margin-left: 8px;
+}
+
+.station-selector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+
+@media (min-width: 640px) {
+  .station-selector-group {
+    align-items: flex-end;
+  }
+}
+
+.station-select-label {
+  font-size: 0.775rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.select-station {
+  min-width: 200px;
+  max-width: 280px;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+}
+
+.current-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (min-width: 768px) {
+  .current-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .current-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+.current-metric-card {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.current-metric-card:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: translateY(-2px);
+}
+
+.metric-label {
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.metric-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.metric-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.font-time {
+  font-size: 1.15rem;
+}
+
+.font-status {
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.obs-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 16px;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px dashed rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .obs-error-state {
+    flex-direction: row;
+    text-align: left;
+    justify-content: space-between;
+  }
+}
+
+.obs-error-icon {
+  font-size: 1.8rem;
+}
+
+.obs-error-msg {
+  color: #f87171;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.obs-error-sub {
+  color: var(--text-muted);
+  font-size: 0.775rem;
+  margin-top: 2px;
+}

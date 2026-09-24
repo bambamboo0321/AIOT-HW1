@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { NormalizedForecastData } from "@/lib/contracts/weather";
+import { NormalizedObservationData } from "@/lib/contracts/observations";
 import { loadWeatherForecast } from "@/lib/client/weather-loader";
+import { loadWeatherObservations } from "@/lib/client/observation-loader";
 import {
   aggregateDailyForecasts,
   filterDailyForecasts,
@@ -10,6 +12,7 @@ import {
   formatTaipeiDateTime,
 } from "@/lib/transformations/daily";
 import { DashboardControls } from "./DashboardControls";
+import { CurrentWeatherCard } from "./CurrentWeatherCard";
 import { KpiCards } from "./KpiCards";
 import { TemperatureTrendChart } from "./TemperatureTrendChart";
 import { DailyForecastGrid } from "./DailyForecastGrid";
@@ -21,12 +24,20 @@ import { EmptyState } from "../ui/EmptyState";
 
 interface ForecastDashboardProps {
   initialData?: NormalizedForecastData | null;
+  initialObservations?: NormalizedObservationData | null;
 }
 
-export function ForecastDashboard({ initialData = null }: ForecastDashboardProps) {
+export function ForecastDashboard({
+  initialData = null,
+  initialObservations = null,
+}: ForecastDashboardProps) {
   const [data, setData] = useState<NormalizedForecastData | null>(initialData);
   const [isLoading, setIsLoading] = useState<boolean>(!initialData);
   const [error, setError] = useState<string | null>(null);
+
+  const [observationData, setObservationData] = useState<NormalizedObservationData | null>(initialObservations);
+  const [isObservationLoading, setIsObservationLoading] = useState<boolean>(!initialObservations);
+  const [observationError, setObservationError] = useState<string | null>(null);
 
   const [selectedRegionRaw, setSelectedRegion] = useState<string>("臺北市");
   const [startDateRaw, setStartDate] = useState<string>("");
@@ -44,6 +55,21 @@ export function ForecastDashboard({ initialData = null }: ForecastDashboardProps
       setError(message);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch observation data from /api/weather/observations
+  const fetchObservations = useCallback(async () => {
+    setIsObservationLoading(true);
+    setObservationError(null);
+    try {
+      const result = await loadWeatherObservations();
+      setObservationData(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "載入即時觀測資料時發生錯誤。";
+      setObservationError(message);
+    } finally {
+      setIsObservationLoading(false);
     }
   }, []);
 
@@ -77,6 +103,38 @@ export function ForecastDashboard({ initialData = null }: ForecastDashboardProps
       isCancelled = true;
     };
   }, [initialData]);
+
+  // Initial load for real-time observations
+  useEffect(() => {
+    if (initialObservations) return;
+    let isCancelled = false;
+
+    async function loadObs() {
+      setIsObservationLoading(true);
+      setObservationError(null);
+      try {
+        const result = await loadWeatherObservations();
+        if (!isCancelled) {
+          setObservationData(result);
+        }
+      } catch (err: unknown) {
+        if (!isCancelled) {
+          const message = err instanceof Error ? err.message : "載入即時觀測資料時發生錯誤。";
+          setObservationError(message);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsObservationLoading(false);
+        }
+      }
+    }
+
+    loadObs();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [initialObservations]);
 
   // Extract region list
   const regions = useMemo(() => {
@@ -202,8 +260,20 @@ export function ForecastDashboard({ initialData = null }: ForecastDashboardProps
             onSelectStartDate={setStartDate}
             onSelectEndDate={setEndDate}
             onResetDates={handleResetDates}
-            onRefresh={fetchData}
-            isLoading={isLoading}
+            onRefresh={() => {
+              fetchData();
+              fetchObservations();
+            }}
+            isLoading={isLoading || isObservationLoading}
+          />
+
+          {/* Real-time Weather Station Observation */}
+          <CurrentWeatherCard
+            region={selectedRegion}
+            observationData={observationData}
+            isLoading={isObservationLoading}
+            error={observationError}
+            onRetry={fetchObservations}
           />
 
           {/* KPI Summary Cards */}
