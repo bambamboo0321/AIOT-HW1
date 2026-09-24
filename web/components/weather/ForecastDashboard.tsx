@@ -3,8 +3,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { NormalizedForecastData } from "@/lib/contracts/weather";
 import { NormalizedObservationData } from "@/lib/contracts/observations";
+import { NormalizedAirQualityData } from "@/lib/contracts/air-quality";
 import { loadWeatherForecast } from "@/lib/client/weather-loader";
 import { loadWeatherObservations } from "@/lib/client/observation-loader";
+import { loadAirQuality } from "@/lib/client/air-quality-loader";
 import {
   aggregateDailyForecasts,
   filterDailyForecasts,
@@ -13,6 +15,7 @@ import {
 } from "@/lib/transformations/daily";
 import { DashboardControls } from "./DashboardControls";
 import { CurrentWeatherCard } from "./CurrentWeatherCard";
+import { AirQualityCard } from "./AirQualityCard";
 import { KpiCards } from "./KpiCards";
 import { TemperatureTrendChart } from "./TemperatureTrendChart";
 import { DailyForecastGrid } from "./DailyForecastGrid";
@@ -25,11 +28,13 @@ import { EmptyState } from "../ui/EmptyState";
 interface ForecastDashboardProps {
   initialData?: NormalizedForecastData | null;
   initialObservations?: NormalizedObservationData | null;
+  initialAirQuality?: NormalizedAirQualityData | null;
 }
 
 export function ForecastDashboard({
   initialData = null,
   initialObservations = null,
+  initialAirQuality = null,
 }: ForecastDashboardProps) {
   const [data, setData] = useState<NormalizedForecastData | null>(initialData);
   const [isLoading, setIsLoading] = useState<boolean>(!initialData);
@@ -38,6 +43,10 @@ export function ForecastDashboard({
   const [observationData, setObservationData] = useState<NormalizedObservationData | null>(initialObservations);
   const [isObservationLoading, setIsObservationLoading] = useState<boolean>(!initialObservations);
   const [observationError, setObservationError] = useState<string | null>(null);
+
+  const [airQualityData, setAirQualityData] = useState<NormalizedAirQualityData | null>(initialAirQuality);
+  const [isAirQualityLoading, setIsAirQualityLoading] = useState<boolean>(!initialAirQuality);
+  const [airQualityError, setAirQualityError] = useState<string | null>(null);
 
   const [selectedRegionRaw, setSelectedRegion] = useState<string>("臺北市");
   const [startDateRaw, setStartDate] = useState<string>("");
@@ -70,6 +79,21 @@ export function ForecastDashboard({
       setObservationError(message);
     } finally {
       setIsObservationLoading(false);
+    }
+  }, []);
+
+  // Fetch air quality data from /api/air-quality
+  const fetchAirQuality = useCallback(async () => {
+    setIsAirQualityLoading(true);
+    setAirQualityError(null);
+    try {
+      const result = await loadAirQuality();
+      setAirQualityData(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "載入空氣品質資料時發生錯誤。";
+      setAirQualityError(message);
+    } finally {
+      setIsAirQualityLoading(false);
     }
   }, []);
 
@@ -135,6 +159,38 @@ export function ForecastDashboard({
       isCancelled = true;
     };
   }, [initialObservations]);
+
+  // Initial load for real-time air quality (MOENV)
+  useEffect(() => {
+    if (initialAirQuality) return;
+    let isCancelled = false;
+
+    async function loadAq() {
+      setIsAirQualityLoading(true);
+      setAirQualityError(null);
+      try {
+        const result = await loadAirQuality();
+        if (!isCancelled) {
+          setAirQualityData(result);
+        }
+      } catch (err: unknown) {
+        if (!isCancelled) {
+          const message = err instanceof Error ? err.message : "載入空氣品質資料時發生錯誤。";
+          setAirQualityError(message);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsAirQualityLoading(false);
+        }
+      }
+    }
+
+    loadAq();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [initialAirQuality]);
 
   // Extract region list
   const regions = useMemo(() => {
@@ -263,8 +319,9 @@ export function ForecastDashboard({
             onRefresh={() => {
               fetchData();
               fetchObservations();
+              fetchAirQuality();
             }}
-            isLoading={isLoading || isObservationLoading}
+            isLoading={isLoading || isObservationLoading || isAirQualityLoading}
           />
 
           {/* Real-time Weather Station Observation */}
@@ -274,6 +331,15 @@ export function ForecastDashboard({
             isLoading={isObservationLoading}
             error={observationError}
             onRetry={fetchObservations}
+          />
+
+          {/* Real-time Air Quality Observation (MOENV) */}
+          <AirQualityCard
+            region={selectedRegion}
+            airQualityData={airQualityData}
+            isLoading={isAirQualityLoading}
+            error={airQualityError}
+            onRetry={fetchAirQuality}
           />
 
           {/* KPI Summary Cards */}
