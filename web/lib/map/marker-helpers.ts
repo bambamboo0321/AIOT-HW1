@@ -166,3 +166,7 @@ export function prepareCountyMapMarkers(
 
   return markers;
 }
+
+// Re-export M13 unified layer system for backwards compatibility
+export * from "./layer-config";
+export * from "./layer-helpers";

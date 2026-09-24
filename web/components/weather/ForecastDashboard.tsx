@@ -490,6 +490,8 @@ export function ForecastDashboard({
           {/* Interactive Taiwan Map */}
           <TaiwanWeatherMap
             data={data}
+            observationData={observationData}
+            airQualityData={airQualityData}
             selectedRegion={selectedRegion}
             onSelectRegion={handleSelectRegionFromMap}
             availableDates={availableDates}

@@ -170,5 +170,13 @@ The interactive weather map utilizes a static coordinate mapping for all 22 firs
 - **Data Source & Reference**:
   - 點座標：手動整理自各直轄市、縣市政府公開之機關地址所在地位置。
 - 行政區名稱與界線範圍參考來源：內政部地政司開放資料 [直轄市、縣市界線（TWD97經緯度）](https://data.gov.tw/dataset/7441)（僅作為行政區名稱與行政範圍之對照參考，非點座標直接來源。）
-- **Access / Compilation Date**: September 2026.
 - **Note**: These coordinates serve strictly as user-interface presentation metadata for map marker visualization and do **not** represent specific meteorological observation stations.
+
+### 行政區邊界資料 (County Administrative Boundaries)
+
+- **原始資料**: 中華民國內政部 2025-03-18「直轄市、縣(市)界線(TWD97經緯度)」（政府資料開放平臺 ID: 7442）。
+- **原始坐標系統 (CRS)**: `EPSG:3824`（TWD97 經緯度 / GRS 1980 橢球體），非 EPSG:4326。
+- **Web 顯示坐標系統 (CRS)**: `EPSG:4326`（WGS84 經緯度 `[longitude, latitude]`），透過 PROJ / pyproj 與 Mapshaper 執行坐標投影轉換及拓撲保留簡化（保留 22 個標準行政縣市）。
+- **範圍與遠洋島礁處理**: 本專案為「Web 顯示優化版行政邊界」，非未經處理之「完整官方界線」。為避免 Web 地圖 fitBounds 視野過度縮放，顯示版未納入部分遠洋島礁（如太平島、東沙群島及釣魚臺列嶼），臺灣本島與澎湖、金門、連江（馬祖）等 22 縣市主要島嶼完整保留。
+- **授權條款**: 政府資料開放授權條款-第1版 (Open Government Data License, OGL-Taiwan v1.0)。
+- **免責聲明**: 行政界線僅供視覺定位與氣象資料參照，不作土地測量、法律界址、產權證明或導航用途。
