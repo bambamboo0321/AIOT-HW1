@@ -7,6 +7,7 @@
  */
 
 import { ApiFailure, createFailureResponse } from "../contracts/api";
+import { sanitizeUrl } from "./redaction";
 
 export abstract class AppError extends Error {
   abstract readonly code: string;
@@ -20,7 +21,7 @@ export abstract class AppError extends Error {
   }
 
   toApiResponse(): ApiFailure {
-    return createFailureResponse(this.code, this.message);
+    return createFailureResponse(this.code, sanitizeUrl(this.message));
   }
 }
 

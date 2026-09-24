@@ -15,7 +15,7 @@
  * 8. Date range filtering is inclusive of both start and end dates.
  */
 
-import { ForecastInterval } from "../contracts/weather";
+import { ForecastInterval, UVForecastItem } from "../contracts/weather";
 
 export interface DailyForecast {
   forecastDate: string; // YYYY-MM-DD in Asia/Taipei
@@ -24,6 +24,7 @@ export interface DailyForecast {
   intervalCount: number;
   isPartial: boolean; // intervalCount < 2
   intervals: ForecastInterval[]; // Raw intervals belonging to this calendar date
+  uv?: UVForecastItem | null; // Optional UV forecast for this date
 }
 
 export interface SummaryKpis {
@@ -90,10 +91,21 @@ export function formatTaipeiDateTime(isoString: string): string {
  * @returns Chronologically sorted array of DailyForecast records
  */
 export function aggregateDailyForecasts(
-  intervals: readonly ForecastInterval[]
+  intervals: readonly ForecastInterval[],
+  uvForecasts?: readonly UVForecastItem[]
 ): DailyForecast[] {
   if (!intervals || intervals.length === 0) {
     return [];
+  }
+
+  // Create UV lookup map by forecastDate
+  const uvMap = new Map<string, UVForecastItem>();
+  if (uvForecasts && uvForecasts.length > 0) {
+    for (const uvItem of uvForecasts) {
+      if (uvItem && uvItem.forecastDate) {
+        uvMap.set(uvItem.forecastDate, uvItem);
+      }
+    }
   }
 
   // Group copy of intervals by Asia/Taipei calendar date of startTime
@@ -136,6 +148,7 @@ export function aggregateDailyForecasts(
       intervalCount,
       isPartial,
       intervals: dayIntervals,
+      uv: uvMap.get(dateKey) ?? null,
     });
   }
 

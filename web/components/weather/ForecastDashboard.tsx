@@ -4,20 +4,26 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { NormalizedForecastData } from "@/lib/contracts/weather";
 import { NormalizedObservationData } from "@/lib/contracts/observations";
 import { NormalizedAirQualityData } from "@/lib/contracts/air-quality";
+import { NormalizedAlertsData } from "@/lib/contracts/alerts";
 import { loadWeatherForecast } from "@/lib/client/weather-loader";
 import { loadWeatherObservations } from "@/lib/client/observation-loader";
 import { loadAirQuality } from "@/lib/client/air-quality-loader";
+import { loadWeatherAlerts } from "@/lib/client/alert-loader";
 import {
   aggregateDailyForecasts,
   filterDailyForecasts,
   computeSummaryKpis,
   formatTaipeiDateTime,
 } from "@/lib/transformations/daily";
+import { WeatherAlertsBanner } from "./WeatherAlertsBanner";
 import { DashboardControls } from "./DashboardControls";
 import { CurrentWeatherCard } from "./CurrentWeatherCard";
 import { AirQualityCard } from "./AirQualityCard";
+import { UVCard } from "./UVCard";
 import { KpiCards } from "./KpiCards";
 import { TemperatureTrendChart } from "./TemperatureTrendChart";
+import { UVTrendChart } from "./UVTrendChart";
+import { findDefaultUvDate, getTaipeiTomorrowDateString } from "@/lib/transformations/uv";
 import { DailyForecastGrid } from "./DailyForecastGrid";
 import { TaiwanWeatherMap } from "./TaiwanWeatherMap";
 import { RawIntervalDetails } from "./RawIntervalDetails";
@@ -29,12 +35,14 @@ interface ForecastDashboardProps {
   initialData?: NormalizedForecastData | null;
   initialObservations?: NormalizedObservationData | null;
   initialAirQuality?: NormalizedAirQualityData | null;
+  initialAlerts?: NormalizedAlertsData | null;
 }
 
 export function ForecastDashboard({
   initialData = null,
   initialObservations = null,
   initialAirQuality = null,
+  initialAlerts = null,
 }: ForecastDashboardProps) {
   const [data, setData] = useState<NormalizedForecastData | null>(initialData);
   const [isLoading, setIsLoading] = useState<boolean>(!initialData);
@@ -48,9 +56,14 @@ export function ForecastDashboard({
   const [isAirQualityLoading, setIsAirQualityLoading] = useState<boolean>(!initialAirQuality);
   const [airQualityError, setAirQualityError] = useState<string | null>(null);
 
+  const [alertsData, setAlertsData] = useState<NormalizedAlertsData | null>(initialAlerts);
+  const [isAlertsLoading, setIsAlertsLoading] = useState<boolean>(!initialAlerts);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+
   const [selectedRegionRaw, setSelectedRegion] = useState<string>("臺北市");
   const [startDateRaw, setStartDate] = useState<string>("");
   const [endDateRaw, setEndDate] = useState<string>("");
+  const [selectedUvDateRaw, setSelectedUvDateRaw] = useState<string>("");
 
   // Fetch forecast data from /api/weather/forecast
   const fetchData = useCallback(async () => {
@@ -94,6 +107,21 @@ export function ForecastDashboard({
       setAirQualityError(message);
     } finally {
       setIsAirQualityLoading(false);
+    }
+  }, []);
+
+  // Fetch weather alerts data from /api/weather/alerts
+  const fetchAlerts = useCallback(async () => {
+    setIsAlertsLoading(true);
+    setAlertsError(null);
+    try {
+      const result = await loadWeatherAlerts();
+      setAlertsData(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "載入天氣警特報資料時發生錯誤。";
+      setAlertsError(message);
+    } finally {
+      setIsAlertsLoading(false);
     }
   }, []);
 
@@ -192,6 +220,38 @@ export function ForecastDashboard({
     };
   }, [initialAirQuality]);
 
+  // Initial load for weather alerts (CWA)
+  useEffect(() => {
+    if (initialAlerts) return;
+    let isCancelled = false;
+
+    async function loadAlerts() {
+      setIsAlertsLoading(true);
+      setAlertsError(null);
+      try {
+        const result = await loadWeatherAlerts();
+        if (!isCancelled) {
+          setAlertsData(result);
+        }
+      } catch (err: unknown) {
+        if (!isCancelled) {
+          const message = err instanceof Error ? err.message : "載入天氣警特報資料時發生錯誤。";
+          setAlertsError(message);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsAlertsLoading(false);
+        }
+      }
+    }
+
+    loadAlerts();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [initialAlerts]);
+
   // Extract region list
   const regions = useMemo(() => {
     if (!data?.regions) return [];
@@ -205,17 +265,24 @@ export function ForecastDashboard({
     return regions.includes("臺北市") ? "臺北市" : regions[0];
   }, [regions, selectedRegionRaw]);
 
-  // Find intervals for selected region
-  const activeRegionIntervals = useMemo(() => {
-    if (!data || !selectedRegion) return [];
-    const found = data.regions.find((r) => r.region === selectedRegion);
-    return found?.intervals ?? [];
+  // Find intervals and UV forecasts for selected region
+  const activeRegionData = useMemo(() => {
+    if (!data || !selectedRegion) return null;
+    return data.regions.find((r) => r.region === selectedRegion) ?? null;
   }, [data, selectedRegion]);
 
-  // Daily aggregated forecasts for active region
+  const activeRegionIntervals = useMemo(() => {
+    return activeRegionData?.intervals ?? [];
+  }, [activeRegionData]);
+
+  const activeUvForecasts = useMemo(() => {
+    return activeRegionData?.uvForecasts ?? [];
+  }, [activeRegionData]);
+
+  // Daily aggregated forecasts for active region, including optional UV mapping
   const allDailyList = useMemo(() => {
-    return aggregateDailyForecasts(activeRegionIntervals);
-  }, [activeRegionIntervals]);
+    return aggregateDailyForecasts(activeRegionIntervals, activeUvForecasts);
+  }, [activeRegionIntervals, activeUvForecasts]);
 
   // Available unique dates
   const availableDates = useMemo(() => {
@@ -244,6 +311,41 @@ export function ForecastDashboard({
   const summaryKpis = useMemo(() => {
     return computeSummaryKpis(filteredDailyList);
   }, [filteredDailyList]);
+
+  // Filter UV forecasts by dashboard-wide date range (startDate ~ endDate)
+  const filteredUvList = useMemo(() => {
+    if (!activeUvForecasts || activeUvForecasts.length === 0) return [];
+    return activeUvForecasts.filter((item) => {
+      if (startDate && item.forecastDate < startDate) return false;
+      if (endDate && item.forecastDate > endDate) return false;
+      return true;
+    });
+  }, [activeUvForecasts, startDate, endDate]);
+
+  const availableUvDates = useMemo(() => {
+    return filteredUvList.map((u) => u.forecastDate);
+  }, [filteredUvList]);
+
+  // Derive active selected UV date (default: today -> closest future -> closest past)
+  const selectedUvDate = useMemo(() => {
+    if (availableUvDates.length === 0) return "";
+    if (selectedUvDateRaw && availableUvDates.includes(selectedUvDateRaw)) {
+      return selectedUvDateRaw;
+    }
+    return findDefaultUvDate(availableUvDates);
+  }, [availableUvDates, selectedUvDateRaw]);
+
+  // Active UV forecast item for currently selected UV date
+  const activeUvItem = useMemo(() => {
+    if (!selectedUvDate || filteredUvList.length === 0) return null;
+    return filteredUvList.find((u) => u.forecastDate === selectedUvDate) ?? null;
+  }, [filteredUvList, selectedUvDate]);
+
+  // Tomorrow UV item (for showing hint if today has ended)
+  const tomorrowUvItem = useMemo(() => {
+    const tomorrowStr = getTaipeiTomorrowDateString();
+    return activeUvForecasts.find((u) => u.forecastDate === tomorrowStr) ?? null;
+  }, [activeUvForecasts]);
 
   const handleResetDates = () => {
     if (availableDates.length > 0) {
@@ -305,6 +407,15 @@ export function ForecastDashboard({
         <EmptyState onReset={fetchData} />
       ) : (
         <main className="dashboard-main-content">
+          {/* Weather Alerts Banner */}
+          <WeatherAlertsBanner
+            selectedRegion={selectedRegion}
+            alerts={alertsData?.alerts ?? []}
+            isLoading={isAlertsLoading}
+            error={alertsError}
+            onRetry={fetchAlerts}
+          />
+
           {/* Controls: Region + Date Filter + Refresh */}
           <DashboardControls
             regions={regions}
@@ -320,8 +431,9 @@ export function ForecastDashboard({
               fetchData();
               fetchObservations();
               fetchAirQuality();
+              fetchAlerts();
             }}
-            isLoading={isLoading || isObservationLoading || isAirQualityLoading}
+            isLoading={isLoading || isObservationLoading || isAirQualityLoading || isAlertsLoading}
           />
 
           {/* Real-time Weather Station Observation */}
@@ -342,6 +454,16 @@ export function ForecastDashboard({
             onRetry={fetchAirQuality}
           />
 
+          {/* UV Index Forecast Card */}
+          <UVCard
+            region={selectedRegion}
+            selectedDate={selectedUvDate}
+            uvItem={activeUvItem}
+            tomorrowUvItem={tomorrowUvItem}
+            isLoading={isLoading}
+            error={null}
+          />
+
           {/* KPI Summary Cards */}
           <KpiCards region={selectedRegion} kpis={summaryKpis} />
 
@@ -349,6 +471,14 @@ export function ForecastDashboard({
           <TemperatureTrendChart
             dailyList={filteredDailyList}
             region={selectedRegion}
+          />
+
+          {/* Daily Daytime UV Trend Chart */}
+          <UVTrendChart
+            dailyUvList={filteredUvList}
+            region={selectedRegion}
+            selectedDate={selectedUvDate}
+            onSelectDate={setSelectedUvDateRaw}
           />
 
           {/* Daily Forecast Grid */}

@@ -21,7 +21,10 @@ import {
   NormalizedForecastData,
   RegionForecast,
   ForecastInterval,
+  UVForecastItem,
 } from "../contracts/weather";
+import { parseUVIndex, buildUVForecastItem } from "../transformations/uv";
+import { getTaipeiDateString } from "../transformations/daily";
 
 if (typeof window !== "undefined") {
   throw new Error("Security Error: cwa-client module cannot be imported in client-side code.");
@@ -144,9 +147,10 @@ export function normalizeCwaForecast(
     const weatherElements = loc.WeatherElement ?? loc.weatherElement;
     if (!Array.isArray(weatherElements)) continue;
 
-    // Dynamically locate "最低溫度" and "最高溫度" regardless of array position
+    // Dynamically locate "最低溫度", "最高溫度", and optional "紫外線指數" regardless of array position
     let minElem: RawCwaWeatherElement | undefined;
     let maxElem: RawCwaWeatherElement | undefined;
+    let uvElem: RawCwaWeatherElement | undefined;
 
     for (const elem of weatherElements) {
       if (!elem || typeof elem !== "object") continue;
@@ -155,10 +159,58 @@ export function normalizeCwaForecast(
         minElem = elem;
       } else if (elemName === "最高溫度") {
         maxElem = elem;
+      } else if (elemName === "紫外線指數") {
+        uvElem = elem;
       }
     }
 
     if (!minElem && !maxElem) continue;
+
+    // Optional-safe UV forecast extraction
+    let uvForecasts: UVForecastItem[] | undefined;
+    if (uvElem) {
+      try {
+        const uvList: UVForecastItem[] = [];
+        const timeList = uvElem.Time ?? uvElem.time;
+        if (Array.isArray(timeList)) {
+          for (const tEntry of timeList) {
+            if (!tEntry || typeof tEntry !== "object") continue;
+            const start = (tEntry.StartTime ?? tEntry.startTime)?.trim();
+            const end = (tEntry.EndTime ?? tEntry.endTime)?.trim();
+            if (!start) continue;
+
+            let rawUvVal: unknown = null;
+            const valList = tEntry.ElementValue ?? tEntry.elementValue;
+            if (Array.isArray(valList) && valList.length > 0 && typeof valList[0] === "object") {
+              const firstVal = valList[0] as Record<string, unknown>;
+              rawUvVal = firstVal.UVIndex ?? firstVal.uvIndex ?? firstVal.value ?? firstVal.Value;
+            }
+
+            const uvIndex = parseUVIndex(rawUvVal);
+            const forecastDate = getTaipeiDateString(start);
+
+            uvList.push(
+              buildUVForecastItem({
+                datasetId: CWA_FORECAST_DATASET_ID,
+                fetchedAt: fetchedAt ?? new Date().toISOString(),
+                county: regionName,
+                forecastDate,
+                startTime: start,
+                endTime: end,
+                uvIndex,
+              })
+            );
+          }
+        }
+        if (uvList.length > 0) {
+          uvList.sort((a, b) => a.forecastDate.localeCompare(b.forecastDate));
+          uvForecasts = uvList;
+        }
+      } catch {
+        // Optional-safe: failure to parse UV never fails the overall forecast parsing
+        uvForecasts = undefined;
+      }
+    }
 
     // Helper to extract temperature map keyed by "startTime__endTime"
     const extractTempMap = (
@@ -224,6 +276,7 @@ export function normalizeCwaForecast(
       regions.push({
         region: regionName,
         intervals,
+        uvForecasts,
       });
     }
   }
