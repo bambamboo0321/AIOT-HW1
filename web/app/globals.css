@@ -28,6 +28,19 @@
   --glass-blur: 20px;
   --glass-radius: 18px;
 
+  /* Milestone M14: Visual Hierarchy & Editorial Surface Tokens */
+  --surface-primary-bg: rgba(10, 18, 36, 0.40);
+  --surface-primary-border: rgba(255, 255, 255, 0.12);
+  --surface-primary-shadow: 0 10px 32px -4px rgba(0, 0, 0, 0.36), 0 2px 8px rgba(0, 0, 0, 0.20);
+
+  --surface-supporting-bg: rgba(10, 18, 34, 0.22);
+  --surface-supporting-border: rgba(255, 255, 255, 0.07);
+  --surface-supporting-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+
+  --surface-grouping-bg: rgba(10, 16, 30, 0.16);
+  --surface-grouping-border: rgba(255, 255, 255, 0.05);
+  --surface-grouping-shadow: none;
+
   /* Semantic Data Colors */
   --color-weather-red: #ef4444;
   --color-weather-blue: #3b82f6;
@@ -1068,14 +1081,14 @@ body {
   }
 }
 
-/* Page Header - Clean, compact, minimal whitespace */
+/* Page Header - Brand First with clear breathing room */
 .dashboard-header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--glass-border-subtle);
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 @media (min-width: 768px) {
@@ -1083,13 +1096,14 @@ body {
     flex-direction: row;
     justify-content: space-between;
     align-items: flex-end;
+    gap: var(--space-6);
   }
 }
 
 .header-brand {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
 }
 
 .brand-badge {
@@ -1097,29 +1111,39 @@ body {
 }
 
 .header-title {
-  font-size: 1.65rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--color-text-primary);
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: #ffffff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-2);
+  gap: var(--space-2) var(--space-3);
+  line-height: 1.15;
+}
+
+@media (min-width: 768px) {
+  .header-title {
+    font-size: 2.2rem;
+  }
 }
 
 .header-title-sub {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 400;
-  color: var(--color-text-secondary);
-  letter-spacing: 0;
+  color: rgba(226, 232, 240, 0.65);
+  letter-spacing: 0.005em;
+  text-shadow: none;
 }
 
 .header-subtitle {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  color: rgba(148, 163, 184, 0.80);
+  line-height: 1.4;
 }
 
-/* Header metadata: sleek inline typography without capsule boxes */
+/* Header metadata: quiet utility metadata */
 .header-metadata {
   display: flex;
   align-items: center;
@@ -1129,9 +1153,9 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 12px;
-  font-size: 0.775rem;
-  color: var(--color-text-muted);
+  gap: 6px 14px;
+  font-size: 0.725rem;
+  color: rgba(148, 163, 184, 0.60);
 }
 
 .meta-line {
@@ -1141,20 +1165,20 @@ body {
 }
 
 .meta-label {
-  color: var(--color-text-muted);
+  color: rgba(148, 163, 184, 0.55);
 }
 
 .meta-value {
-  color: var(--color-text-secondary);
-  font-weight: 500;
+  color: rgba(203, 213, 225, 0.75);
+  font-weight: 450;
 }
 
 .meta-divider {
-  color: var(--glass-border-subtle);
+  color: rgba(255, 255, 255, 0.10);
 }
 
 .meta-dataset {
-  opacity: 0.75;
+  opacity: 0.65;
 }
 
 /* Common Card Styling - Apple Weather Glass Surface System */
@@ -1172,6 +1196,39 @@ body {
 
 .dashboard-card:hover {
   border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Milestone M14: Surface Level Specializations */
+/* Level 1 — Primary Surface: Current Weather Hero, Temp Forecast Section, Interactive Map */
+.surface-primary,
+.current-weather-card.dashboard-card,
+.temp-forecast-section.dashboard-card,
+.map-card.dashboard-card {
+  background: var(--surface-primary-bg);
+  border: 1px solid var(--surface-primary-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--surface-primary-shadow);
+}
+
+/* Level 2 — Supporting Surface: UV Card, AQI Card, UV Trend Chart */
+.surface-supporting,
+.uv-card.dashboard-card,
+.air-quality-card.dashboard-card,
+.chart-card.dashboard-card {
+  background: var(--surface-supporting-bg);
+  border: 1px solid var(--surface-supporting-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--surface-supporting-shadow);
+}
+
+/* Level 3 — Structural Grouping: Filter/Control Rail, Summary Rail, Alert Status Rail, Raw Intervals */
+.surface-grouping,
+.controls-card.dashboard-card,
+.raw-details-card.dashboard-card {
+  background: var(--surface-grouping-bg);
+  border: 1px solid var(--surface-grouping-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--surface-grouping-shadow);
 }
 
 .section-header {
@@ -1198,15 +1255,15 @@ body {
   margin-top: 2px;
 }
 
-/* Controls - Low-profile Glass Toolbar */
+/* Controls - Compact, tactile Control Rail (Subordinate to Hero) */
 .controls-card {
-  background: var(--glass-bg-subtle);
+  background: var(--surface-grouping-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border-subtle);
-  border-radius: var(--glass-radius);
-  padding: 10px 16px;
-  margin-bottom: var(--space-4);
+  border: 1px solid var(--surface-grouping-border);
+  border-radius: var(--radius-control);
+  padding: 8px 16px;
+  margin-bottom: var(--space-5);
   box-shadow: none;
 }
 
@@ -1232,26 +1289,26 @@ body {
 .control-group {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .control-label {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: rgba(148, 163, 184, 0.75);
   display: flex;
   align-items: center;
   gap: 5px;
 }
 
 .select-input {
-  height: 38px;
-  padding: 0 12px;
+  height: 36px;
+  padding: 0 10px;
   border-radius: var(--radius-control);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--color-text-primary);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-family: inherit;
   outline: none;
   cursor: pointer;
@@ -1261,11 +1318,12 @@ body {
 .select-input:focus {
   border-color: var(--color-accent-sky);
   box-shadow: 0 0 0 2px var(--color-focus-ring);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .select-compact {
-  height: 34px;
-  font-size: 0.8125rem;
+  height: 32px;
+  font-size: 0.775rem;
 }
 
 .control-actions {
@@ -1279,9 +1337,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  height: 38px;
-  padding: 0 16px;
-  font-size: 0.85rem;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.8125rem;
   font-weight: 500;
   border-radius: var(--radius-control);
   cursor: pointer;
@@ -1305,13 +1363,13 @@ body {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--color-text-secondary);
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--color-text-primary);
 }
 
@@ -1327,7 +1385,7 @@ body {
   grid-template-areas: none;
   align-items: start;
   gap: var(--space-6);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
   width: 100%;
 }
 
@@ -1394,18 +1452,18 @@ body {
   margin-bottom: 0;
 }
 
-/* KPI Summary Rail — flat, divider-based, not 4 heavy cards */
+/* Forecast Summary Rail — true summary ribbon with hairline dividers */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 0;
-  margin-bottom: var(--space-6);
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--glass-radius);
-  box-shadow: var(--glass-shadow-soft);
+  margin-bottom: var(--space-8); /* Deliberate rhythmic pause before 7-day forecast */
+  background: var(--surface-grouping-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--surface-grouping-border);
+  border-radius: 12px;
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -1415,18 +1473,19 @@ body {
   }
 }
 
-/* Internal dividers via border-right, suppressed on last column */
+/* Internal dividers via subtle hairline, suppressed on boundary cells */
 .kpi-card {
-  padding: 16px 20px;
+  padding: 12px 18px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border-right: 1px solid var(--color-border-subtle);
-  border-bottom: 1px solid var(--color-border-subtle);
+  gap: 3px;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  transition: background-color var(--duration-fast) ease;
 }
 
 @media (min-width: 640px) {
-
   /* On 4-col layout: no bottom border, only right borders */
   .kpi-card {
     border-bottom: none;
@@ -1450,24 +1509,24 @@ body {
 }
 
 .kpi-label {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
+  font-size: 0.725rem;
+  color: rgba(148, 163, 184, 0.70);
   font-weight: 500;
   white-space: nowrap;
 }
 
 .kpi-value {
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-size: 1.40rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
 
 .kpi-desc {
-  font-size: 0.7rem;
-  color: var(--color-text-muted);
-  margin-top: 2px;
+  font-size: 0.675rem;
+  color: rgba(100, 116, 139, 0.80);
+  margin-top: 1px;
 }
 
 /* Unified Temperature Forecast Section */
@@ -1575,10 +1634,11 @@ body {
   margin-bottom: var(--space-2);
 }
 
-/* Trend Chart */
+/* Trend Chart — Supporting Analytical Surface */
 .chart-card {
   position: relative;
   overflow: visible;
+  margin-bottom: var(--space-8); /* Deliberate rhythmic pause before Interactive Map */
 }
 
 .chart-header {
@@ -2362,7 +2422,18 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
 }
 
-/* Raw Intervals Accordion */
+/* Raw Intervals Accordion — Structural Grouping */
+.raw-details-card {
+  background: var(--surface-grouping-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--surface-grouping-border);
+  border-radius: var(--radius-control);
+  padding: 14px 20px;
+  margin-bottom: var(--space-8);
+  box-shadow: none;
+}
+
 .accordion-toggle {
   width: 100%;
   display: flex;
@@ -2507,31 +2578,33 @@ body {
   margin-bottom: 16px;
 }
 
-/* Footer */
+/* Footer — Quiet Technical Signature */
 .dashboard-footer {
   text-align: center;
-  font-size: 0.825rem;
-  color: var(--text-muted);
-  padding-top: 24px;
-  border-top: 1px solid var(--border-subtle);
+  font-size: 0.775rem;
+  color: rgba(148, 163, 184, 0.55);
+  padding-top: var(--space-6);
+  padding-bottom: var(--space-8);
+  margin-top: var(--space-8);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .footer-sub {
-  margin-top: 6px;
-  font-size: 0.775rem;
-  color: #475569;
+  margin-top: 4px;
+  font-size: 0.725rem;
+  color: rgba(100, 116, 139, 0.65);
 }
 
-/* Current Weather Observation Card */
+/* Current Weather Observation Card — Primary Hero Surface */
 .current-weather-card {
   margin-bottom: var(--space-6);
-  background: var(--glass-bg);
+  background: var(--surface-primary-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--glass-radius);
+  border: 1px solid var(--surface-primary-border);
+  border-radius: var(--radius-card);
   padding: var(--space-6);
-  box-shadow: var(--glass-shadow-soft);
+  box-shadow: var(--surface-primary-shadow);
 }
 
 .current-header {
@@ -2654,7 +2727,7 @@ body {
   }
 }
 
-/* 氣溫 Hero 焦點 (~40% on desktop): Completely Frameless, Clean Apple Typography */
+/* 氣溫 Hero 焦點 (~40% on desktop): Dominant Hero Typography */
 .current-temp-hero,
 .current-metric-hero {
   background: transparent !important;
@@ -2670,19 +2743,18 @@ body {
 }
 
 @media (min-width: 768px) {
-
   .current-temp-hero,
   .current-metric-hero {
-    flex: 0 0 38%;
-    min-width: 160px;
-    max-width: 240px;
-    padding-right: var(--space-2) !important;
+    flex: 0 0 42%;
+    min-width: 180px;
+    max-width: 280px;
+    padding-right: var(--space-4) !important;
   }
 }
 
 .temp-hero-label {
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.75);
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -2693,24 +2765,30 @@ body {
 .temp-hero-number-wrap {
   display: flex;
   align-items: flex-start;
-  line-height: 1;
-  margin: 4px 0 8px;
+  line-height: 0.90;
+  margin: 4px 0 10px;
 }
 
 .metric-temp-hero {
-  font-size: 3.75rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-size: 4.75rem;
+  font-weight: 750;
+  letter-spacing: -0.035em;
   color: #ffffff;
-  line-height: 0.95;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  line-height: 0.90;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 767px) {
+  .metric-temp-hero {
+    font-size: 4.0rem;
+  }
 }
 
 .temp-hero-unit {
-  font-size: 1.5rem;
+  font-size: 1.65rem;
   font-weight: 400;
-  color: var(--color-accent-sky);
-  margin-top: 4px;
+  color: rgba(125, 211, 252, 0.85);
+  margin-top: 6px;
   margin-left: 2px;
 }
 
@@ -2719,15 +2797,15 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
+  font-size: 0.775rem;
+  color: rgba(203, 213, 225, 0.75);
 }
 
 .temp-hero-dot {
-  color: var(--glass-border-subtle);
+  color: rgba(255, 255, 255, 0.15);
 }
 
-/* Secondary 2x2 flat metrics grid (~60% on desktop) */
+/* Secondary 2x2 flat metrics grid (~58% on desktop) */
 .current-secondary-metrics,
 .current-secondary-metrics-grid {
   display: grid;
@@ -2742,14 +2820,14 @@ body {
 .current-secondary-metrics-grid .current-metric-card {
   background: transparent;
   border: none;
-  border-top: 1px solid var(--glass-border-subtle);
-  border-left: 1px solid var(--glass-border-subtle);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 0;
-  padding: 12px 16px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
   transition: background-color var(--duration-fast) ease;
 }
@@ -2772,32 +2850,32 @@ body {
 }
 
 .metric-label {
-  font-size: 0.775rem;
-  color: var(--color-text-muted);
+  font-size: 0.725rem;
+  color: rgba(148, 163, 184, 0.70);
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   word-break: normal;
   overflow-wrap: normal;
   white-space: normal;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .metric-value {
-  font-size: 1.35rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 650;
   letter-spacing: -0.01em;
-  color: var(--color-text-primary);
-  line-height: 1.2;
+  color: #f1f5f9;
+  line-height: 1.15;
   white-space: nowrap;
   word-break: normal;
   overflow-wrap: normal;
 }
 
 .metric-desc {
-  font-size: 0.725rem;
-  color: var(--color-text-muted);
+  font-size: 0.675rem;
+  color: rgba(100, 116, 139, 0.80);
   word-break: normal;
   overflow-wrap: normal;
 }
@@ -2809,14 +2887,14 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  padding: 12px 0 0 0;
+  padding: 10px 0 0 0;
   margin-top: auto;
   background: transparent;
   border: none;
-  border-top: 1px solid var(--glass-border-subtle);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 0;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
+  font-size: 0.725rem;
+  color: rgba(148, 163, 184, 0.60);
 }
 
 .metadata-item {
@@ -2907,16 +2985,16 @@ body {
   margin-top: 2px;
 }
 
-/* Air Quality Card */
+/* Air Quality Card — Supporting Surface */
 .air-quality-card {
   margin-bottom: var(--space-6);
-  background: var(--glass-bg);
+  background: var(--surface-supporting-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--glass-radius);
+  border: 1px solid var(--surface-supporting-border);
+  border-radius: var(--radius-card);
   padding: var(--space-6);
-  box-shadow: var(--glass-shadow-soft);
+  box-shadow: var(--surface-supporting-shadow);
 }
 
 .badge-aqi {
@@ -3043,15 +3121,20 @@ body {
   transition: all var(--duration-fast) ease;
 }
 
+/* Weather Alert Status Rail (Calm state = low-profile status bar) */
 .alerts-calm,
 .alerts-banner-calm {
-  padding: 8px 14px;
-  background: rgba(13, 21, 39, 0.6);
-  border: 1px solid var(--color-border-subtle);
+  padding: 6px 14px;
+  background: rgba(10, 18, 30, 0.20);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  border-radius: var(--radius-control);
   display: flex;
   align-items: center;
   gap: var(--space-3);
   font-size: 0.8125rem;
+  box-shadow: none;
 }
 
 .alerts-calm-content {
@@ -3062,20 +3145,22 @@ body {
 }
 
 .alerts-calm-icon {
-  font-size: 1.1rem;
+  font-size: 1rem;
   display: flex;
   align-items: center;
+  color: var(--color-accent-sky);
+  opacity: 0.85;
 }
 
 .alerts-calm-title {
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: rgba(226, 232, 240, 0.75);
 }
 
 .alerts-calm-subtitle {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
+  font-size: 0.725rem;
+  color: rgba(148, 163, 184, 0.60);
 }
 
 .alerts-loading {
@@ -3331,16 +3416,16 @@ body {
   text-decoration: underline;
 }
 
-/* UV Index Card */
+/* UV Index Card — Supporting Surface */
 .uv-card {
   margin-bottom: var(--space-6);
-  background: var(--glass-bg);
+  background: var(--surface-supporting-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--glass-radius);
+  border: 1px solid var(--surface-supporting-border);
+  border-radius: var(--radius-card);
   padding: var(--space-6);
-  box-shadow: var(--glass-shadow-soft);
+  box-shadow: var(--surface-supporting-shadow);
   display: flex;
   flex-direction: column;
 }

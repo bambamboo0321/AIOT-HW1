@@ -165,7 +165,7 @@ export function CurrentWeatherCard({
                 <span>即時氣溫</span>
               </span>
               <div className="temp-hero-number-wrap font-mono">
-                <span className="metric-value metric-temp-hero">
+                <span className="metric-temp-hero">
                   {activeStation.temperature !== null ? `${activeStation.temperature.toFixed(1)}°` : "—"}
                 </span>
                 <span className="temp-hero-unit">C</span>
