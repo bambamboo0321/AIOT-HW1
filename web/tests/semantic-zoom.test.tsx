@@ -8,6 +8,7 @@ import {
   MAP_ZOOM_THRESHOLDS,
   getMapZoomTier,
   MAP_LAYERS,
+  DEFAULT_MAP_ZOOM,
 } from "@/lib/map/layer-config";
 import {
   prepareUnifiedMapMarkers,
@@ -565,5 +566,22 @@ describe("Milestone M13 Semantic Zoom & Map Interaction Tests", () => {
 
     const zoomHint = screen.getByTestId("map-zoom-hint");
     expect(zoomHint.getAttribute("role")).toBe("status");
+  });
+
+  it("Requirement 14: 地圖預設初始 zoom level 為 7 (Default map zoom is 7)", () => {
+    expect(DEFAULT_MAP_ZOOM).toBe(7);
+
+    render(
+      <TaiwanWeatherMap
+        data={mockForecastData}
+        observationData={mockObservationData}
+        airQualityData={mockAirQualityData}
+        selectedRegion="臺北市"
+      />
+    );
+
+    // Without initialZoom specified, zoom tier badge defaults to Overview (zoom <= 8, zoom 7)
+    const zoomBadge = screen.getByTestId("map-zoom-tier-badge");
+    expect(zoomBadge.textContent).toContain("全臺摘要視角");
   });
 });

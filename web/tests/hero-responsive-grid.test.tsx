@@ -219,4 +219,26 @@ describe("Milestone M13.1 Hero Responsive Grid & Calm Weather Intelligence Tests
     expect(cssContent).toMatch(/\.controls-grid\s*\{[\s\S]*?flex-direction:\s*column/);
     expect(cssContent).toMatch(/\.control-actions\s*\{[\s\S]*?width:\s*100%/);
   });
+
+  it("Req16: CSS brace balance is 0 and media queries are properly closed", () => {
+    let depth = 0;
+    for (const c of cssContent) {
+      if (c === "{") depth++;
+      if (c === "}") depth--;
+    }
+    expect(depth).toBe(0);
+  });
+
+  it("Req17: current-title-area does not have flex-basis 260px at root column layout", () => {
+    // Top-level .current-title-area should not have flex: 1 1 260px
+    const titleAreaBlock = cssContent.match(/\.current-title-area\s*\{([^}]*)\}/);
+    expect(titleAreaBlock).not.toBeNull();
+    expect(titleAreaBlock![1]).not.toContain("260px");
+    // Only in @media (min-width: 768px) should flex: 1 1 260px apply
+    expect(cssContent).toMatch(/@media\s*\(min-width:\s*768px\)\s*\{[\s\S]*?\.current-title-area\s*\{[^}]*flex:\s*1\s+1\s+260px/);
+  });
+
+  it("Req18: current-header includes align-content: flex-start on >=768px", () => {
+    expect(cssContent).toMatch(/@media\s*\(min-width:\s*768px\)\s*\{[\s\S]*?\.current-header\s*\{[^}]*align-content:\s*flex-start/);
+  });
 });

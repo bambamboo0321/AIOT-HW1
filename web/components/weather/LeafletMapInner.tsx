@@ -14,7 +14,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { CountyMapMarkerData } from "@/lib/map/marker-helpers";
 import { UnifiedMapMarker } from "@/lib/map/layer-helpers";
-import { MapZoomTier, getMapZoomTier } from "@/lib/map/layer-config";
+import { MapZoomTier, getMapZoomTier, DEFAULT_MAP_ZOOM } from "@/lib/map/layer-config";
 import {
   TAIWAN_COUNTIES_GEOJSON,
   normalizeCountyName,
@@ -212,7 +212,7 @@ export function LeafletMapInner({
     <MapContainer
       ref={mapRef}
       center={[23.7, 120.95]}
-      zoom={7}
+      zoom={currentZoom ?? DEFAULT_MAP_ZOOM}
       scrollWheelZoom={true}
       doubleClickZoom={true}
       dragging={true}

@@ -11,6 +11,7 @@ import {
   MAP_LAYERS,
   getLayerConfig,
   DEFAULT_MAP_LAYER_ID,
+  DEFAULT_MAP_ZOOM,
   getMapZoomTier,
   getMapZoomTierLabel,
   MapZoomTier,
@@ -52,7 +53,7 @@ export function TaiwanWeatherMap({
   availableDates,
   initialLayerId,
   onLayerChange,
-  initialZoom = 7,
+  initialZoom = DEFAULT_MAP_ZOOM,
 }: TaiwanWeatherMapProps) {
   const [activeLayerId, setActiveLayerId] = useState<MapLayerId>(
     initialLayerId ?? DEFAULT_MAP_LAYER_ID

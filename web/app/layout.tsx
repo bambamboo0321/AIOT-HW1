@@ -18,6 +18,9 @@ export default function RootLayout({
         {/* Layer 1: Immersive weather background imagery with CSS gradient fallback */}
         <div id="weather-bg-layer" className="weather-bg-layer" aria-hidden="true" />
 
+        {/* Milestone M13.5: Weather Atmosphere Ambient Overlay Root */}
+        <div id="weather-atmosphere-root" aria-hidden="true" />
+
         {/* Layer 2: Deep navy readability contrast overlay & ambient gradient */}
         <div className="weather-overlay-layer" aria-hidden="true" />
 

@@ -110,11 +110,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Milestone M13.3: 3-Layer Immersive Architecture */
+/* Milestone M13.3 & M13.5: Layered Immersive Architecture */
 /* Layer 1: Weather background image with CSS gradient fallback */
 .weather-bg-layer {
   position: fixed;
-  inset: 0;
+  inset: -14px;
+  width: calc(100% + 28px);
+  height: calc(100% + 28px);
   z-index: 0;
   background-color: #0b1528;
   background-image:
@@ -124,9 +126,10 @@ body {
   background-position: center top;
   background-repeat: no-repeat;
   pointer-events: none;
-  transform: translateZ(0);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -6px));
   opacity: 1;
   transition: opacity 400ms ease-in-out;
+  will-change: opacity, transform;
 }
 
 /* Milestone M13.4: Dynamic Background Crossfade */
@@ -134,24 +137,772 @@ body {
   opacity: 0.35;
 }
 
-/* Layer 2: Readability navy overlay — gentle 0.30~0.42 alpha, clouds/sky clearly visible */
-.weather-overlay-layer {
+/* Milestone M13.5: Weather Atmosphere Ambient Overlay Root & Layers */
+#weather-atmosphere-root {
+  display: contents;
+}
+
+/* Layer 2: Atmosphere Depth Layer (Light, clouds, haze, distant stars) */
+.weather-atmosphere-layer {
   position: fixed;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(
-    180deg,
-    rgba(8, 16, 32, 0.25) 0%,
-    rgba(10, 20, 40, 0.32) 45%,
-    rgba(6, 12, 24, 0.44) 100%
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+  opacity: 1;
+  transition: opacity 1000ms ease-in-out;
+}
+
+.weather-atmosphere-layer::before,
+.weather-atmosphere-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1200ms ease;
+  will-change: opacity, transform;
+}
+
+/* Layer 4: Foreground Weather Layer (Glass droplets, near-field atmosphere, non-blocking) */
+.weather-foreground-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+  opacity: 1;
+  transition: opacity 1000ms ease-in-out;
+}
+
+.weather-foreground-layer::before,
+.weather-foreground-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1200ms ease;
+  will-change: opacity, transform;
+}
+
+/* Visibility pause state */
+.weather-atmosphere-layer.animation-paused::before,
+.weather-atmosphere-layer.animation-paused::after,
+.weather-foreground-layer.animation-paused::before,
+.weather-foreground-layer.animation-paused::after {
+  animation-play-state: paused !important;
+}
+
+/* ==========================================================================
+   Scenario: DAWN (清晨)
+   - Layer 2: Soft horizon glow breathing at bottom with scroll & pointer parallax
+   - Layer 4: Near-field low valley mist with faster displacement
+   ========================================================================== */
+.atmosphere--dawn::before {
+  opacity: 0.18;
+  background: radial-gradient(ellipse 95% 55% at 50% 88%,
+      rgba(248, 180, 205, 0.22) 0%,
+      rgba(195, 140, 210, 0.12) 45%,
+      rgba(120, 80, 160, 0.04) 75%,
+      transparent 100%);
+  transform: translate(calc(var(--weather-pointer-x, 0) * 5px), calc(var(--weather-scroll-progress, 0) * -16px));
+  animation: dawn-breath 22s ease-in-out infinite alternate;
+}
+
+.atmosphere-fg--dawn::before {
+  opacity: 0.14;
+  background: radial-gradient(ellipse 110% 40% at 50% 95%,
+      rgba(235, 215, 245, 0.10) 0%,
+      rgba(180, 155, 210, 0.04) 55%,
+      transparent 85%);
+  transform: translate(calc(var(--weather-pointer-x, 0) * 3px), calc(var(--weather-scroll-progress, 0) * -28px));
+  animation: dawn-fg-mist 28s ease-in-out infinite alternate;
+}
+
+@keyframes dawn-breath {
+  0% {
+    opacity: 0.15;
+    transform: translate(calc(var(--weather-pointer-x, 0) * 5px), calc(var(--weather-scroll-progress, 0) * -16px)) scale(1);
+  }
+
+  50% {
+    opacity: 0.22;
+    transform: translate(calc(var(--weather-pointer-x, 0) * 5px), calc(var(--weather-scroll-progress, 0) * -16px - 4px)) scale(1.008);
+  }
+
+  100% {
+    opacity: 0.15;
+    transform: translate(calc(var(--weather-pointer-x, 0) * 5px), calc(var(--weather-scroll-progress, 0) * -16px)) scale(1);
+  }
+}
+
+@keyframes dawn-fg-mist {
+  0% {
+    opacity: 0.12;
+    transform: translate(calc(var(--weather-pointer-x, 0) * 3px - 1%), calc(var(--weather-scroll-progress, 0) * -28px));
+  }
+
+  50% {
+    opacity: 0.18;
+    transform: translate(calc(var(--weather-pointer-x, 0) * 3px + 1%), calc(var(--weather-scroll-progress, 0) * -28px - 3px));
+  }
+
+  100% {
+    opacity: 0.12;
+    transform: translate(calc(var(--weather-pointer-x, 0) * 3px - 1%), calc(var(--weather-scroll-progress, 0) * -28px));
+  }
+}
+
+/* ==========================================================================
+   Scenario: CLEAR DAY (晴天・白晝 - Scroll-Driven Photographic Sunlight)
+   - Layer 2: Radiant sun source + volumetric crepuscular rays (fanning & rotating with scroll)
+   - Layer 4: Optical lens flare artifacts along optical axis + soft atmospheric haze
+   ========================================================================== */
+.atmosphere--clear-day::before {
+  opacity: calc(0.52 + var(--sun-spread, 0) * 0.32);
+  background:
+    /* Intense solar core with authentic photographic exposure bloom */
+    radial-gradient(circle at calc(20% + var(--weather-pointer-x, 0) * 16px) calc(0% + var(--weather-pointer-y, 0) * 10px),
+      rgba(255, 255, 252, 0.98) 0%,
+      rgba(255, 250, 225, 0.75) 10%,
+      rgba(255, 230, 160, 0.40) 26%,
+      rgba(255, 200, 100, 0.18) 50%,
+      transparent 75%
+    ),
+    /* Wide atmospheric warmth wash */
+    radial-gradient(ellipse 95% 65% at calc(20% + var(--weather-pointer-x, 0) * 10px) 0%,
+      rgba(255, 240, 205, 0.24) 0%,
+      rgba(255, 225, 170, 0.10) 45%,
+      transparent 78%
+    );
+  transform: translate(
+    calc(var(--weather-pointer-x, 0) * 8px),
+    calc(var(--weather-scroll-progress, 0) * -16px)
+  ) scale(calc(0.90 + var(--sun-spread, 0) * 0.22));
+  transform-origin: 20% 0%;
+}
+
+/* Volumetric Sun Rays (Crepuscular Rays) fanning across the sky */
+.atmosphere--clear-day .sun-rays-layer {
+  position: absolute;
+  inset: -15% -10% -15% -10%;
+  width: 130%;
+  height: 130%;
+  pointer-events: none;
+  opacity: calc(0.38 + var(--sun-spread, 0) * 0.52);
+  background: conic-gradient(
+    from calc(112deg + var(--sun-rays-angle, 0deg)) at calc(20% + var(--weather-pointer-x, 0) * 18px) calc(0% + var(--weather-pointer-y, 0) * 12px),
+    transparent 0deg,
+    rgba(255, 252, 235, 0.24) 8deg,
+    rgba(255, 245, 210, 0.05) 16deg,
+    transparent 24deg,
+    rgba(255, 250, 225, 0.32) 34deg,
+    rgba(255, 240, 190, 0.06) 45deg,
+    transparent 55deg,
+    rgba(255, 246, 215, 0.28) 66deg,
+    rgba(255, 235, 185, 0.04) 78deg,
+    transparent 90deg
   );
+  mask-image: radial-gradient(ellipse 95% 85% at 20% 0%, black 15%, rgba(0, 0, 0, 0.55) 55%, transparent 88%);
+  -webkit-mask-image: radial-gradient(ellipse 95% 85% at 20% 0%, black 15%, rgba(0, 0, 0, 0.55) 55%, transparent 88%);
+  transform: scale(calc(0.85 + var(--sun-spread, 0) * 0.28)) rotate(calc(var(--sun-spread, 0) * 5deg));
+  transform-origin: 20% 0%;
+}
+
+.atmosphere-fg--clear-day::before {
+  opacity: calc(0.20 + var(--sun-spread, 0) * 0.16);
+  background: radial-gradient(
+    ellipse 75% 30% at calc(20% + var(--weather-pointer-x, 0) * 12px) 0%,
+    rgba(255, 252, 240, 0.18) 0%,
+    rgba(255, 240, 200, 0.08) 48%,
+    transparent 72%
+  );
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -20px));
+  animation: clear-day-drift 26s ease-in-out infinite alternate;
+}
+
+/* Photographic Lens Flare Artifacts along optical diagonal */
+.atmosphere-fg--clear-day .sun-flare-orbs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: calc(var(--sun-flare, 0) * 0.95);
+}
+
+.atmosphere-fg--clear-day .flare-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Orb 1: Soft warm champagne-amber optical aperture ghost along diagonal */
+.atmosphere-fg--clear-day .orb-1 {
+  left: 42%;
+  top: 36%;
+  width: 180px;
+  height: 180px;
+  margin-left: -90px;
+  margin-top: -90px;
+  background: radial-gradient(circle,
+    rgba(255, 238, 190, 0.28) 0%,
+    rgba(255, 215, 140, 0.12) 36%,
+    rgba(255, 195, 100, 0.03) 62%,
+    transparent 72%
+  );
+  transform: translate(
+    calc(var(--weather-pointer-x, 0) * -16px),
+    calc(var(--weather-pointer-y, 0) * -12px + var(--weather-scroll-progress, 0) * 50px)
+  ) scale(calc(0.72 + var(--sun-flare, 0) * 0.38));
+}
+
+/* Orb 2: Very subtle cool-cyan / white anti-reflective lens ghost */
+.atmosphere-fg--clear-day .orb-2 {
+  left: 65%;
+  top: 66%;
+  width: 110px;
+  height: 110px;
+  margin-left: -55px;
+  margin-top: -55px;
+  background: radial-gradient(circle,
+    rgba(205, 240, 235, 0.22) 0%,
+    rgba(165, 220, 212, 0.08) 40%,
+    transparent 68%
+  );
+  transform: translate(
+    calc(var(--weather-pointer-x, 0) * -26px),
+    calc(var(--weather-pointer-y, 0) * -18px + var(--weather-scroll-progress, 0) * 80px)
+  ) scale(calc(0.65 + var(--sun-flare, 0) * 0.45));
+}
+
+@keyframes clear-day-drift {
+  0% {
+    opacity: 0.20;
+    filter: brightness(0.98);
+  }
+
+  50% {
+    opacity: 0.27;
+    filter: brightness(1.04);
+  }
+
+  100% {
+    opacity: 0.20;
+    filter: brightness(0.98);
+  }
+}
+
+/* ==========================================================================
+   Scenario: CLOUDY DAY (多雲・白晝)
+   - Layer 2: Distant translucent cool mist across sky (drifts + scroll displacement)
+   - Layer 4: Nearer mountain mist veil moving at faster displacement for authentic depth
+   ========================================================================== */
+.atmosphere--cloudy-day::before {
+  width: 108%;
+  height: 100%;
+  left: -4%;
+  opacity: 0.28;
+  background:
+    radial-gradient(ellipse 75% 35% at 25% 30%, rgba(220, 230, 245, 0.09) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 32% at 75% 24%, rgba(210, 225, 242, 0.07) 0%, transparent 65%);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -12px));
+  animation: cloudy-day-drift 48s ease-in-out infinite alternate;
+}
+
+.atmosphere-fg--cloudy-day::before {
+  width: 108%;
+  height: 100%;
+  left: -4%;
+  opacity: 0.22;
+  background:
+    radial-gradient(ellipse 85% 28% at 65% 55%, rgba(240, 245, 255, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 75% 25% at 30% 65%, rgba(230, 240, 252, 0.05) 0%, transparent 65%);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -26px));
+  animation: cloudy-fg-drift 60s ease-in-out infinite alternate;
+}
+
+@keyframes cloudy-day-drift {
+  0% {
+    transform: translateX(-1.5%) translateY(calc(var(--weather-scroll-progress, 0) * -12px));
+    opacity: 0.25;
+  }
+
+  50% {
+    transform: translateX(1.5%) translateY(calc(var(--weather-scroll-progress, 0) * -12px - 3px));
+    opacity: 0.32;
+  }
+
+  100% {
+    transform: translateX(-1.5%) translateY(calc(var(--weather-scroll-progress, 0) * -12px));
+    opacity: 0.25;
+  }
+}
+
+@keyframes cloudy-fg-drift {
+  0% {
+    transform: translateX(1.2%) translateY(calc(var(--weather-scroll-progress, 0) * -26px));
+    opacity: 0.18;
+  }
+
+  50% {
+    transform: translateX(-1.2%) translateY(calc(var(--weather-scroll-progress, 0) * -26px - 4px));
+    opacity: 0.25;
+  }
+
+  100% {
+    transform: translateX(1.2%) translateY(calc(var(--weather-scroll-progress, 0) * -26px));
+    opacity: 0.18;
+  }
+}
+
+/* ==========================================================================
+   Scenario: SUNSET (日落)
+   - Layer 2: Warm golden-amber horizon glow + faint golden light streak
+   - Layer 4: Near-field warm golden twilight haze at lower edge
+   ========================================================================== */
+.atmosphere--sunset::before {
+  opacity: 0.22;
+  background:
+    radial-gradient(ellipse 95% 55% at 50% 86%, rgba(251, 146, 60, 0.16) 0%, rgba(245, 158, 11, 0.08) 40%, rgba(180, 83, 9, 0.02) 70%, transparent 100%),
+    linear-gradient(110deg, transparent 20%, rgba(255, 210, 140, 0.035) 45%, rgba(255, 180, 100, 0.015) 55%, transparent 75%);
+  transform: translate(calc(var(--weather-pointer-x, 0) * 6px), calc(var(--weather-scroll-progress, 0) * -15px));
+  animation: sunset-breath 20s ease-in-out infinite alternate;
+}
+
+.atmosphere-fg--sunset::before {
+  opacity: 0.15;
+  background: radial-gradient(ellipse 100% 35% at 50% 92%,
+      rgba(255, 185, 110, 0.08) 0%,
+      rgba(215, 110, 50, 0.03) 50%,
+      transparent 75%);
+  transform: translate(calc(var(--weather-pointer-x, 0) * 4px), calc(var(--weather-scroll-progress, 0) * -26px));
+}
+
+@keyframes sunset-breath {
+  0% {
+    opacity: 0.18;
+    transform: translate(calc(var(--weather-pointer-x, 0) * 6px), calc(var(--weather-scroll-progress, 0) * -15px));
+  }
+
+  50% {
+    opacity: 0.25;
+    transform: translate(calc(var(--weather-pointer-x, 0) * 6px), calc(var(--weather-scroll-progress, 0) * -15px - 3px));
+  }
+
+  100% {
+    opacity: 0.18;
+    transform: translate(calc(var(--weather-pointer-x, 0) * 6px), calc(var(--weather-scroll-progress, 0) * -15px));
+  }
+}
+
+/* ==========================================================================
+   Scenario: CLEAR NIGHT (晴夜)
+   - Layer 2: Distant star field (micro pin-points, twinkle A, displacement: -8px)
+   - Layer 4: Nearer subtle stars (slightly larger, asynchronous twinkle B, displacement: -20px)
+   ========================================================================== */
+.atmosphere--clear-night::before {
+  opacity: 0.32;
+  background:
+    radial-gradient(1px 1px at 15% 12%, rgba(255, 255, 255, 0.55) 0%, transparent 100%),
+    radial-gradient(1px 1px at 35% 24%, rgba(240, 248, 255, 0.45) 0%, transparent 100%),
+    radial-gradient(1px 1px at 62% 10%, rgba(255, 255, 255, 0.50) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 18%, rgba(230, 245, 255, 0.40) 0%, transparent 100%),
+    radial-gradient(0.75px 0.75px at 48% 15%, rgba(255, 255, 255, 0.35) 0%, transparent 100%),
+    radial-gradient(0.75px 0.75px at 73% 28%, rgba(255, 255, 255, 0.35) 0%, transparent 100%);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -8px));
+  animation: starlight-a 8s ease-in-out infinite alternate;
+}
+
+.atmosphere-fg--clear-night::before {
+  opacity: 0.30;
+  background:
+    radial-gradient(1.5px 1.5px at 22% 20%, rgba(255, 250, 235, 0.55) 0%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 42% 8%, rgba(255, 255, 255, 0.50) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 58% 22%, rgba(235, 245, 255, 0.55) 0%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 78% 12%, rgba(255, 255, 255, 0.45) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 90% 26%, rgba(245, 240, 255, 0.50) 0%, transparent 100%);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -20px));
+  animation: starlight-b 11.5s ease-in-out infinite alternate;
+  animation-delay: -4.5s;
+}
+
+@keyframes starlight-a {
+  0% {
+    opacity: 0.24;
+  }
+
+  50% {
+    opacity: 0.38;
+  }
+
+  100% {
+    opacity: 0.24;
+  }
+}
+
+@keyframes starlight-b {
+  0% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 0.18;
+  }
+
+  100% {
+    opacity: 0.35;
+  }
+}
+
+/* ==========================================================================
+   Scenario: CLOUDY NIGHT (多雲・暗夜)
+   - Layer 2: Distant deep cloud mass + diffuse cool moonlight haze
+   - Layer 4: Nearer dark cloud silhouette veil
+   ========================================================================== */
+.atmosphere--cloudy-night::before {
+  width: 108%;
+  height: 100%;
+  left: -4%;
+  opacity: 0.30;
+  background:
+    radial-gradient(ellipse 55% 32% at 68% 20%, rgba(185, 215, 255, 0.06) 0%, rgba(120, 160, 220, 0.015) 50%, transparent 75%),
+    radial-gradient(ellipse 75% 35% at 28% 28%, rgba(5, 10, 22, 0.16) 0%, transparent 70%);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -11px));
+  animation: cloudy-night-drift 54s ease-in-out infinite alternate;
+}
+
+.atmosphere-fg--cloudy-night::before {
+  width: 108%;
+  height: 100%;
+  left: -4%;
+  opacity: 0.24;
+  background: radial-gradient(ellipse 70% 28% at 72% 38%, rgba(4, 8, 18, 0.14) 0%, transparent 70%);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -24px));
+  animation: cloudy-night-fg-drift 64s ease-in-out infinite alternate;
+}
+
+@keyframes cloudy-night-drift {
+  0% {
+    transform: translateX(-1.5%) translateY(calc(var(--weather-scroll-progress, 0) * -11px));
+    opacity: 0.26;
+  }
+
+  50% {
+    transform: translateX(1.5%) translateY(calc(var(--weather-scroll-progress, 0) * -11px - 2px));
+    opacity: 0.34;
+  }
+
+  100% {
+    transform: translateX(-1.5%) translateY(calc(var(--weather-scroll-progress, 0) * -11px));
+    opacity: 0.26;
+  }
+}
+
+@keyframes cloudy-night-fg-drift {
+  0% {
+    transform: translateX(1.2%) translateY(calc(var(--weather-scroll-progress, 0) * -24px));
+    opacity: 0.20;
+  }
+
+  50% {
+    transform: translateX(-1.2%) translateY(calc(var(--weather-scroll-progress, 0) * -24px - 3px));
+    opacity: 0.28;
+  }
+
+  100% {
+    transform: translateX(1.2%) translateY(calc(var(--weather-scroll-progress, 0) * -24px));
+    opacity: 0.20;
+  }
+}
+
+/* ==========================================================================
+   Scenario: RAIN DAY (雨天・白晝 - Scroll-Driven Rain on Glass System)
+   - Layer 2: Distant fine diagonal rain wash + soft ground rain mist
+   - Layer 4: Clear glass droplets + growing coalesced beads + 3 scroll-elongating water trails
+   ========================================================================== */
+.atmosphere--rain-day::before {
+  opacity: calc(0.20 + var(--rain-coalesce, 0) * 0.14);
+  background-image: repeating-linear-gradient(105deg,
+      transparent 0px,
+      transparent 34px,
+      rgba(215, 235, 255, 0.025) 35px,
+      rgba(215, 235, 255, 0.025) 36px,
+      transparent 37px,
+      transparent 75px);
+  background-size: 75px 150px;
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -12px));
+  animation: rain-fall-layer-a 2.4s linear infinite;
+}
+
+.atmosphere--rain-day::after {
+  opacity: calc(0.16 + var(--rain-trails, 0) * 0.14);
+  background: radial-gradient(ellipse 95% 40% at 50% 90%, rgba(200, 220, 245, 0.12) 0%, transparent 80%);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -8px));
+}
+
+/* Rain on Glass (Phase 1: 0.00 -> 0.20): Crisp pinpoint droplets with convex specular highlights & refraction rims */
+.atmosphere-fg--rain-day::before {
+  opacity: calc(0.65 + var(--rain-coalesce, 0) * 0.30);
+  background-image:
+    /* High-contrast crisp droplets with specular pinpoints, watery body & dark meniscus ring */
+    radial-gradient(circle at 14% 18%, #ffffff 0%, rgba(255, 255, 255, 0.85) 1.5px, rgba(190, 225, 255, 0.25) 3.5px, rgba(15, 35, 70, 0.22) 5px, rgba(255, 255, 255, 0.45) 6px, transparent 7px),
+    radial-gradient(circle at 26% 42%, #ffffff 0%, rgba(255, 255, 255, 0.80) 2px, rgba(190, 225, 255, 0.22) 4.5px, rgba(15, 35, 70, 0.20) 6.5px, rgba(255, 255, 255, 0.40) 8px, transparent 9.5px),
+    radial-gradient(circle at 45% 15%, #ffffff 0%, rgba(255, 255, 255, 0.75) 1px, rgba(190, 225, 255, 0.20) 2.5px, rgba(15, 35, 70, 0.16) 4px, transparent 5px),
+    radial-gradient(circle at 62% 28%, #ffffff 0%, rgba(255, 255, 255, 0.80) 2px, rgba(190, 225, 255, 0.22) 4.5px, rgba(15, 35, 70, 0.20) 6.5px, rgba(255, 255, 255, 0.40) 8px, transparent 9.5px),
+    radial-gradient(circle at 78% 18%, #ffffff 0%, rgba(255, 255, 255, 0.85) 1.5px, rgba(190, 225, 255, 0.25) 3.5px, rgba(15, 35, 70, 0.22) 5px, rgba(255, 255, 255, 0.45) 6px, transparent 7.5px),
+    radial-gradient(circle at 86% 52%, #ffffff 0%, rgba(255, 255, 255, 0.80) 2.5px, rgba(190, 225, 255, 0.24) 5.5px, rgba(15, 35, 70, 0.24) 8px, rgba(255, 255, 255, 0.45) 10px, transparent 11.5px),
+    radial-gradient(circle at 38% 72%, #ffffff 0%, rgba(255, 255, 255, 0.75) 2px, rgba(190, 225, 255, 0.20) 4px, rgba(15, 35, 70, 0.20) 6px, transparent 7.5px),
+    radial-gradient(circle at 82% 78%, #ffffff 0%, rgba(255, 255, 255, 0.80) 2px, rgba(190, 225, 255, 0.22) 4.5px, rgba(15, 35, 70, 0.20) 6.5px, rgba(255, 255, 255, 0.40) 8px, transparent 9.5px),
+    radial-gradient(circle at 18% 76%, #ffffff 0%, rgba(255, 255, 255, 0.75) 1.5px, rgba(190, 225, 255, 0.20) 3.5px, transparent 5px),
+    radial-gradient(circle at 7% 48%, #ffffff 0%, rgba(255, 255, 255, 0.80) 2px, rgba(190, 225, 255, 0.20) 4px, transparent 6px),
+    radial-gradient(circle at 93% 36%, #ffffff 0%, rgba(255, 255, 255, 0.80) 2px, rgba(190, 225, 255, 0.22) 4px, transparent 6px);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -16px));
+}
+
+/* Rain on Glass (Phase 2: 0.40 -> 0.55): Secondary larger droplets coalescing, merging & growing */
+.atmosphere-fg--rain-day::after {
+  opacity: calc(var(--rain-coalesce, 0) * 0.95);
+  background-image:
+    /* Larger coalesced beads condensing on the glass surface */
+    radial-gradient(circle at 9% 20%, #ffffff 0%, rgba(255, 255, 255, 0.90) 3px, rgba(190, 225, 255, 0.28) 7px, rgba(10, 30, 65, 0.25) 10px, rgba(255, 255, 255, 0.55) 12px, transparent 14px),
+    radial-gradient(circle at 89% 26%, #ffffff 0%, rgba(255, 255, 255, 0.90) 3.5px, rgba(190, 225, 255, 0.28) 8px, rgba(10, 30, 65, 0.25) 12px, rgba(255, 255, 255, 0.55) 14px, transparent 16px),
+    radial-gradient(circle at 74% 12%, #ffffff 0%, rgba(255, 255, 255, 0.85) 2.5px, rgba(190, 225, 255, 0.25) 6px, rgba(10, 30, 65, 0.22) 9px, rgba(255, 255, 255, 0.50) 11px, transparent 13px),
+    radial-gradient(circle at 12% 64%, #ffffff 0%, rgba(255, 255, 255, 0.80) 2px, rgba(190, 225, 255, 0.22) 5px, rgba(10, 30, 65, 0.20) 7.5px, transparent 9.5px),
+    radial-gradient(circle at 88% 70%, #ffffff 0%, rgba(255, 255, 255, 0.80) 2px, rgba(190, 225, 255, 0.22) 5px, rgba(10, 30, 65, 0.20) 7.5px, transparent 9.5px);
+  transform: scale(calc(0.68 + var(--rain-coalesce, 0) * 0.38)) translateY(calc(var(--weather-scroll-progress, 0) * -22px));
+  transform-origin: center;
+}
+
+/* Rain on Glass (Phase 3: 0.70 -> 1.00): 3 Natural Vertical Water Trails elongating with scroll */
+.atmosphere-fg--rain-day .rain-glass-trails {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.atmosphere-fg--rain-day .rain-streak {
+  position: absolute;
+  border-radius: 4px;
+  pointer-events: none;
+  transform-origin: top center;
+  opacity: calc(var(--rain-trails, 0) * 0.95);
+  transform: scaleY(calc(0.04 + var(--rain-trails, 0) * 0.96));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+/* Streak 1: Left-hand trickle extending down from water bead at (9% 20%) */
+.atmosphere-fg--rain-day .streak-1 {
+  left: 9%;
+  top: 20%;
+  width: 5px;
+  height: 220px;
+  margin-left: -2.5px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(255, 255, 255, 0.45) 4px,
+    rgba(220, 240, 255, 0.22) 15%,
+    rgba(255, 255, 255, 0.52) 85%,
+    rgba(255, 255, 255, 0.95) 100%
+  );
+  border-left: 1px solid rgba(255, 255, 255, 0.75);
+  border-right: 1px solid rgba(30, 60, 100, 0.25);
+}
+.atmosphere-fg--rain-day .streak-1::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 12px;
+  border-radius: 50% 50% 55% 55%;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, rgba(255, 255, 255, 0.8) 25%, rgba(180, 215, 255, 0.2) 60%, rgba(10, 30, 60, 0.3) 85%, #fff 100%);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+}
+
+/* Streak 2: Right-hand prominent vertical trickle extending down */
+.atmosphere-fg--rain-day .streak-2 {
+  left: 89%;
+  top: 26%;
+  width: 6.5px;
+  height: 260px;
+  margin-left: -3.25px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.42) 6px,
+    rgba(210, 235, 255, 0.20) 20%,
+    rgba(255, 255, 255, 0.58) 88%,
+    rgba(255, 255, 255, 0.98) 100%
+  );
+  border-left: 1px solid rgba(255, 255, 255, 0.80);
+  border-right: 1px solid rgba(30, 60, 100, 0.30);
+}
+.atmosphere-fg--rain-day .streak-2::after {
+  content: "";
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 14px;
+  border-radius: 50% 50% 55% 55%;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, rgba(255, 255, 255, 0.8) 25%, rgba(180, 215, 255, 0.2) 60%, rgba(10, 30, 60, 0.3) 85%, #fff 100%);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+}
+
+/* Streak 3: Upper-middle gutter natural river trickle */
+.atmosphere-fg--rain-day .streak-3 {
+  left: 74%;
+  top: 12%;
+  width: 4.5px;
+  height: 180px;
+  margin-left: -2.25px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.90) 0%,
+    rgba(255, 255, 255, 0.38) 4px,
+    rgba(220, 240, 255, 0.18) 15%,
+    rgba(255, 255, 255, 0.48) 85%,
+    rgba(255, 255, 255, 0.92) 100%
+  );
+  border-left: 1px solid rgba(255, 255, 255, 0.70);
+  border-right: 1px solid rgba(30, 60, 100, 0.25);
+}
+.atmosphere-fg--rain-day .streak-3::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 9px;
+  height: 11px;
+  border-radius: 50% 50% 55% 55%;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, rgba(255, 255, 255, 0.8) 25%, rgba(180, 215, 255, 0.2) 60%, rgba(10, 30, 60, 0.3) 85%, #fff 100%);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes rain-fall-layer-a {
+  0% {
+    background-position: 0 0;
+  }
+
+  100% {
+    background-position: -75px 300px;
+  }
+}
+
+@keyframes rain-fall-layer-b {
+  0%,
+  15% {
+    transform: translateY(calc(var(--weather-scroll-progress, 0) * -34px));
+  }
+
+  35%,
+  65% {
+    transform: translateY(calc(var(--weather-scroll-progress, 0) * -34px + 14px));
+  }
+
+  85%,
+  100% {
+    transform: translateY(calc(var(--weather-scroll-progress, 0) * -34px + 32px));
+  }
+}
+
+/* ==========================================================================
+   Scenario: RAIN NIGHT (雨天・黑夜)
+   - Layer 2: Distant night rain wash + cold bottom moisture reflection
+   - Layer 4: Night rain on glass with silver-blue highlights catching ambient glow
+   ========================================================================== */
+.atmosphere--rain-night::before {
+  opacity: 0.18;
+  background-image: repeating-linear-gradient(105deg,
+      transparent 0px,
+      transparent 38px,
+      rgba(165, 195, 240, 0.02) 39px,
+      rgba(165, 195, 240, 0.02) 40px,
+      transparent 41px,
+      transparent 85px);
+  background-size: 85px 170px;
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -10px));
+  animation: rain-fall-distant 2.8s linear infinite;
+}
+
+.atmosphere--rain-night::after {
+  opacity: 0.18;
+  background: radial-gradient(ellipse 85% 40% at 50% 90%, rgba(45, 75, 125, 0.10) 0%, transparent 80%);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -7px));
+  animation: rain-night-moisture 14s ease-in-out infinite alternate;
+}
+
+@keyframes rain-night-moisture {
+  0% {
+    opacity: 0.14;
+  }
+
+  50% {
+    opacity: 0.22;
+  }
+
+  100% {
+    opacity: 0.14;
+  }
+}
+
+.atmosphere-fg--rain-night::before {
+  opacity: 0.30;
+  background-image:
+    radial-gradient(circle at 18% 22%, rgba(220, 235, 255, 0.55) 0%, rgba(160, 195, 240, 0.15) 2px, transparent 3.5px),
+    radial-gradient(circle at 28% 48%, rgba(220, 235, 255, 0.50) 0%, rgba(160, 195, 240, 0.12) 2.5px, transparent 4.5px),
+    radial-gradient(circle at 48% 18%, rgba(220, 235, 255, 0.45) 0%, transparent 3px),
+    radial-gradient(circle at 65% 32%, rgba(220, 235, 255, 0.50) 0%, rgba(160, 195, 240, 0.14) 2.5px, transparent 4.5px),
+    radial-gradient(circle at 84% 22%, rgba(220, 235, 255, 0.55) 0%, transparent 3.5px),
+    radial-gradient(circle at 74% 68%, rgba(220, 235, 255, 0.45) 0%, transparent 4px),
+    radial-gradient(circle at 35% 75%, rgba(220, 235, 255, 0.45) 0%, transparent 3.5px);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -26px));
+}
+
+.atmosphere-fg--rain-night::after {
+  opacity: 0.25;
+  background-image:
+    radial-gradient(ellipse 2.5px 4px at 40% 38%, rgba(225, 240, 255, 0.55) 0%, rgba(160, 195, 240, 0.15) 2px, transparent 3.5px),
+    radial-gradient(ellipse 3px 5px at 70% 52%, rgba(225, 240, 255, 0.50) 0%, rgba(160, 195, 240, 0.12) 2.5px, transparent 4px);
+  transform: translateY(calc(var(--weather-scroll-progress, 0) * -32px));
+  animation: rain-glass-trickle 22s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* ==========================================================================
+   Scenario: DEFAULT (無情境)
+   - Zero continuous animation or display
+   ========================================================================== */
+.atmosphere--default::before,
+.atmosphere--default::after,
+.atmosphere-fg--default::before,
+.atmosphere-fg--default::after {
+  display: none !important;
+  animation: none !important;
+}
+
+/* Layer 2.5: Readability navy overlay — gentle 0.25~0.44 alpha, clouds/sky clearly visible */
+.weather-overlay-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(180deg,
+      rgba(8, 16, 32, 0.25) 0%,
+      rgba(10, 20, 40, 0.32) 45%,
+      rgba(6, 12, 24, 0.44) 100%);
   pointer-events: none;
 }
 
 /* Layer 3: Foreground content */
 .weather-content-layer {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -166,6 +917,13 @@ body {
 
 /* Accessibility: Prefers Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --weather-scroll-y: 0px !important;
+    --weather-scroll-progress: 0 !important;
+    --weather-pointer-x: 0 !important;
+    --weather-pointer-y: 0 !important;
+  }
+
   *,
   *::before,
   *::after {
@@ -179,11 +937,59 @@ body {
   .weather-bg-layer.bg-fading {
     transition: none !important;
     opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Milestone M13.5: Reduced motion completely disables atmosphere animations & foreground */
+  .weather-atmosphere-layer,
+  .weather-atmosphere-layer::before,
+  .weather-atmosphere-layer::after,
+  .weather-foreground-layer,
+  .weather-foreground-layer::before,
+  .weather-foreground-layer::after {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .weather-atmosphere-layer {
+    opacity: 0.10 !important;
+  }
+
+  .weather-foreground-layer {
+    display: none !important;
+  }
+
+  .atmosphere--rain-day::before,
+  .atmosphere--rain-day::after,
+  .atmosphere--rain-night::before,
+  .atmosphere--rain-night::after {
+    display: none !important;
+  }
+}
+
+/* Milestone M13.5: Mobile & Coarse Pointer Atmosphere Degradation */
+@media (max-width: 768px), (pointer: coarse) {
+  .weather-atmosphere-layer {
+    opacity: 0.65;
+  }
+
+  .weather-foreground-layer {
+    opacity: 0.65;
+  }
+
+  /* Rain scenes use at most 1 layer on mobile/coarse pointers */
+  .atmosphere--rain-day::after,
+  .atmosphere--rain-night::after,
+  .atmosphere-fg--rain-day::after,
+  .atmosphere-fg--rain-night::after {
+    display: none !important;
   }
 }
 
 /* Accessibility: Prefers Reduced Transparency */
 @media (prefers-reduced-transparency: reduce) {
+
   .card,
   .dashboard-card,
   .current-weather-card,
@@ -213,12 +1019,29 @@ body {
 }
 
 /* Typography Helpers */
-.text-red { color: var(--accent-red); }
-.text-blue { color: var(--accent-blue); }
-.text-emerald { color: var(--accent-emerald); }
-.text-accent { color: var(--accent-sky); }
-.text-muted { color: var(--text-muted); }
-.font-mono { font-family: var(--font-mono); }
+.text-red {
+  color: var(--accent-red);
+}
+
+.text-blue {
+  color: var(--accent-blue);
+}
+
+.text-emerald {
+  color: var(--accent-emerald);
+}
+
+.text-accent {
+  color: var(--accent-sky);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
 
 /* Text-protection utilities: prevent character-by-character wrapping */
 .nowrap {
@@ -226,6 +1049,7 @@ body {
   word-break: normal;
   overflow-wrap: normal;
 }
+
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
@@ -512,7 +1336,8 @@ body {
   grid-area: auto;
   height: auto;
   align-self: start;
-  position: static; /* guard: never absolute */
+  position: static;
+  /* guard: never absolute */
   width: 100%;
 }
 
@@ -520,7 +1345,8 @@ body {
   grid-area: auto;
   height: auto;
   align-self: start;
-  position: static; /* guard: never absolute */
+  position: static;
+  /* guard: never absolute */
   width: 100%;
 }
 
@@ -528,7 +1354,8 @@ body {
   grid-area: auto;
   height: auto;
   align-self: start;
-  position: static; /* guard: never absolute */
+  position: static;
+  /* guard: never absolute */
   width: 100%;
 }
 
@@ -599,10 +1426,12 @@ body {
 }
 
 @media (min-width: 640px) {
+
   /* On 4-col layout: no bottom border, only right borders */
   .kpi-card {
     border-bottom: none;
   }
+
   /* Last cell: no right border */
   .kpi-card:last-child {
     border-right: none;
@@ -614,6 +1443,7 @@ body {
   .kpi-card:nth-child(2n) {
     border-right: none;
   }
+
   .kpi-card:nth-child(n+3) {
     border-bottom: none;
   }
@@ -684,6 +1514,7 @@ body {
     width: 100%;
     display: flex;
   }
+
   .temp-view-toggle .segmented-btn {
     flex: 1;
     justify-content: center;
@@ -986,10 +1817,12 @@ body {
     transform: scale(0.95);
     box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
   }
+
   70% {
     transform: scale(1);
     box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
   }
+
   100% {
     transform: scale(0.95);
     box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
@@ -1058,6 +1891,7 @@ body {
     -webkit-overflow-scrolling: touch;
     padding-bottom: 6px;
   }
+
   .layer-btn {
     flex-shrink: 0;
   }
@@ -1637,7 +2471,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .skeleton-grid {
@@ -1650,17 +2486,23 @@ body {
 .skeleton-card {
   height: 96px;
   border-radius: var(--radius-md);
-  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0.03) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
-.error-icon, .empty-icon {
+.error-icon,
+.empty-icon {
   font-size: 2.75rem;
   margin-bottom: 16px;
 }
@@ -1705,13 +2547,19 @@ body {
     justify-content: space-between;
     align-items: flex-start;
     flex-wrap: wrap;
+    align-content: flex-start;
     gap: 16px;
   }
 }
 
 .current-title-area {
-  flex: 1 1 260px;
   min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .current-title-area {
+    flex: 1 1 260px;
+  }
 }
 
 .current-badge-group {
@@ -1794,7 +2642,8 @@ body {
   flex-direction: column;
   gap: var(--space-4);
   flex: 1;
-  align-items: flex-start; /* never stretch — satisfies Req13 */
+  align-items: flex-start;
+  /* never stretch — satisfies Req13 */
 }
 
 @media (min-width: 768px) {
@@ -1821,6 +2670,7 @@ body {
 }
 
 @media (min-width: 768px) {
+
   .current-temp-hero,
   .current-metric-hero {
     flex: 0 0 38%;
@@ -2006,6 +2856,7 @@ body {
 @media (min-width: 768px) {
   .current-grid {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
 }
 
 .font-time {
@@ -2664,10 +3515,13 @@ body {
 }
 
 @keyframes pulse-ring {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0.9;
     transform-origin: center;
   }
+
   50% {
     opacity: 0.4;
   }

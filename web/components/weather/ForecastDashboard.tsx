@@ -15,7 +15,8 @@ import {
   computeSummaryKpis,
   formatTaipeiDateTime,
 } from "@/lib/transformations/daily";
-import { resolveWeatherBackground } from "@/lib/theme/background-assets";
+import { resolveWeatherBackground, WEATHER_SCENARIOS, WeatherScenarioKey } from "@/lib/theme/background-assets";
+import { WeatherAtmosphere } from "./WeatherAtmosphere";
 import { filterStationsByCounty, findClosestStation } from "@/lib/transformations/stations";
 import { TAIWAN_COUNTY_COORDINATES } from "@/lib/data/county-coordinates";
 import { WeatherAlertsBanner } from "./WeatherAlertsBanner";
@@ -66,6 +67,7 @@ export function ForecastDashboard({
   const [startDateRaw, setStartDate] = useState<string>("");
   const [endDateRaw, setEndDate] = useState<string>("");
   const [selectedUvDateRaw, setSelectedUvDateRaw] = useState<string>("");
+  const [previewOverride, setPreviewOverride] = useState<WeatherScenarioKey | null>(null);
 
   // Fetch forecast data from /api/weather/forecast
   const fetchData = useCallback(async () => {
@@ -254,6 +256,30 @@ export function ForecastDashboard({
     };
   }, [initialAlerts]);
 
+  // Milestone M13.5: Synchronize preview scenario from URL ONLY after client hydration
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const syncPreviewFromUrl = () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const bgParam = urlParams.get("weatherPreview") || urlParams.get("bg");
+        if (bgParam && bgParam in WEATHER_SCENARIOS) {
+          setPreviewOverride(bgParam as WeatherScenarioKey);
+        } else {
+          setPreviewOverride(null);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    syncPreviewFromUrl();
+    window.addEventListener("popstate", syncPreviewFromUrl);
+    return () => {
+      window.removeEventListener("popstate", syncPreviewFromUrl);
+    };
+  }, []);
+
   // Extract region list
   const regions = useMemo(() => {
     if (!data?.regions) return [];
@@ -305,29 +331,16 @@ export function ForecastDashboard({
     // - Alerts are auxiliary only and cannot prove current rain.
     // - Without reliable short-term precipitation or real-time weather phenomenon,
     //   background safely switches based on time using neutral scenario.
-    // Development-only background preview support via URL query parameter (e.g. ?bg=sunset, ?bg=dawn)
-    let devOverride: import("@/lib/theme/background-assets").WeatherScenarioKey | null = null;
-    if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const bgParam = urlParams.get("bg");
-        if (bgParam) {
-          devOverride = bgParam as import("@/lib/theme/background-assets").WeatherScenarioKey;
-        }
-      } catch {
-        // ignore
-      }
-    }
-
+    // Development-only background preview is synced post-hydration via previewOverride
     return resolveWeatherBackground({
       observedAt,
       dailyPrecipitation,
       shortTermPrecipitation: null,
       currentWeatherPhenomenon: null,
       weatherAlertHeadline: alertHeadline,
-      overrideScenario: devOverride,
+      overrideScenario: previewOverride,
     });
-  }, [representativeStation, observationData?.fetchedAt, data?.fetchedAt, activeCountyAlert]);
+  }, [representativeStation, observationData?.fetchedAt, data?.fetchedAt, activeCountyAlert, previewOverride]);
 
   // Apply resolved background to the single #weather-bg-layer with gentle opacity fade
   useEffect(() => {
@@ -467,6 +480,9 @@ export function ForecastDashboard({
 
   return (
     <div className="dashboard-container">
+      {/* Milestone M13.5: Weather Atmosphere Ambient Overlay */}
+      <WeatherAtmosphere scenario={resolvedBg.backgroundKey} />
+
       {/* Header: Clean, compact Apple Weather inspired header */}
       <header className="dashboard-header">
         <div className="header-brand">

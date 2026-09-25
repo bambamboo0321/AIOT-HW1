@@ -227,6 +227,7 @@ export const MAP_LAYERS: readonly MapLayerConfig[] = [
 ];
 
 export const DEFAULT_MAP_LAYER_ID: MapLayerId = "forecast_max_temp";
+export const DEFAULT_MAP_ZOOM = 7;
 
 export function getLayerConfig(layerId: MapLayerId): MapLayerConfig {
   const found = MAP_LAYERS.find((l) => l.id === layerId);
