@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { WeatherScenarioKey } from "@/lib/theme/background-assets";
 import { RefractiveRaindropPrototype } from "./RefractiveRaindropPrototype";
 import { DashboardRainOverlay } from "./DashboardRainOverlay";
+import { DashboardSunOverlay } from "./sun/DashboardSunOverlay";
 
 export interface WeatherAtmosphereProps {
   scenario?: WeatherScenarioKey;
@@ -88,6 +89,17 @@ function getRainDashboardSnapshot(): boolean {
   }
 }
 
+function getSunDashboardSnapshot(): boolean {
+  if (typeof window === "undefined") return false;
+  if (process.env.NODE_ENV === "production") return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("sunDashboard") === "1";
+  } catch {
+    return false;
+  }
+}
+
 function getServerDebugSnapshot(): boolean {
   return false;
 }
@@ -143,6 +155,12 @@ export function WeatherAtmosphere({
   const isRainDashboard = useSyncExternalStore(
     subscribeDebug,
     getRainDashboardSnapshot,
+    getServerDebugSnapshot
+  );
+
+  const isSunDashboard = useSyncExternalStore(
+    subscribeDebug,
+    getSunDashboardSnapshot,
     getServerDebugSnapshot
   );
   const hudRef = useRef<HTMLDivElement | null>(null);
@@ -303,7 +321,13 @@ export function WeatherAtmosphere({
       : null;
 
   const isRainActive = scenario === "rain-day";
-  const effectiveScenario = isRainActive && isRainDashboard ? "default" : scenario;
+  const isSunActive = scenario === "clear-day" && isSunDashboard;
+  const effectiveScenario =
+    isRainActive && isRainDashboard
+      ? "default"
+      : isSunActive
+      ? "default"
+      : scenario;
 
   const element = (
     <>
@@ -315,7 +339,7 @@ export function WeatherAtmosphere({
         data-testid="weather-atmosphere-layer"
         data-paused={isPaused ? "true" : "false"}
       >
-        {scenario === "clear-day" && (
+        {scenario === "clear-day" && !isSunActive && (
           <div className="sun-rays-layer" aria-hidden="true" />
         )}
       </div>
@@ -334,7 +358,7 @@ export function WeatherAtmosphere({
             <div className="rain-streak streak-3" />
           </div>
         )}
-        {scenario === "clear-day" && (
+        {scenario === "clear-day" && !isSunActive && (
           <div className="sun-flare-orbs" aria-hidden="true">
             <div className="flare-orb orb-1" />
             <div className="flare-orb orb-2" />
@@ -347,7 +371,12 @@ export function WeatherAtmosphere({
       {isRainActive && isRainPrototype && !isRainDashboard && (
         <RefractiveRaindropPrototype showDebug={showDebug} />
       )}
-      {showDebug && !(isRainActive && (isRainPrototype || isRainDashboard)) && (
+      {isSunActive && (
+        <DashboardSunOverlay showDebug={showDebug} />
+      )}
+      {showDebug &&
+        !(isRainActive && (isRainPrototype || isRainDashboard)) &&
+        !isSunActive && (
         <div
           ref={hudRef}
           id="weather-debug-hud"

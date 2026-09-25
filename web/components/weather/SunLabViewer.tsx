@@ -47,55 +47,40 @@ const LAB_PAGE_VH = 3;
 /** Number of viewport heights of scroll that maps to full 0→1 progress. */
 const SCROLL_VH_RANGE = 2; // scroll 200vh → progress 1.0
 
-export const BASE_SUN_X = 0.78;
-export const BASE_SUN_Y = 0.16;
+import {
+  BASE_SUN_X,
+  BASE_SUN_Y,
+  OPTICAL_KEYFRAMES,
+  computeOpticalState,
+  computeSunState,
+} from "./sun/optical-state";
+import {
+  OpticalState,
+  SunState,
+  OpticalPhaseName,
+  RendererType,
+  LabMode,
+  LayerMode,
+  SunModelType,
+  WebGLRendererState,
+} from "./sun/sun-types";
 
-// ============================================================
-// Types
-// ============================================================
-
-export type RendererType = "A" | "B" | "C";
-export type LabMode = "scroll" | "manual";
-export type LayerMode = "A" | "B" | "C" | "D";
-export type SunModelType = "photographic" | "classic";
-
-export type OpticalPhaseName =
-  | "CALM"
-  | "APPROACH"
-  | "PRIMARY PEAK"
-  | "RELEASE"
-  | "SECOND APPROACH"
-  | "SECONDARY PEAK"
-  | "SETTLE";
-
-/**
- * Deterministic optical state returned by computeOpticalState(progress).
- */
-export interface OpticalState {
-  sunX: number;
-  sunY: number;
-  viewOffsetX: number;
-  viewOffsetY: number;
-  flareAxisAngle: number;
-  intensity: number;
-  bloom: number;
-  haloStrength: number;
-  haloScale: number;
-  haloOffset: number;
-  starburst: number;
-  ghostStrength: number;
-  ghostSpread: number;
-  chromatic: number;
-  haze: number;
-  phaseName: OpticalPhaseName;
-}
-
-/**
- * Backward-compatible SunState interface for earlier consumers.
- */
-export interface SunState extends OpticalState {
-  halo: number; // alias to haloStrength
-}
+export {
+  BASE_SUN_X,
+  BASE_SUN_Y,
+  OPTICAL_KEYFRAMES,
+  computeOpticalState,
+  computeSunState,
+};
+export type {
+  OpticalState,
+  SunState,
+  OpticalPhaseName,
+  RendererType,
+  LabMode,
+  LayerMode,
+  SunModelType,
+};
 
 interface SunLabParams extends OpticalState {
   renderer: RendererType;
@@ -111,239 +96,6 @@ interface SunLabParams extends OpticalState {
   halo: number;
 }
 
-// ============================================================
-// Multi-Peak Optical Choreography Keyframes
-// ============================================================
-
-interface Keyframe {
-  t: number;
-  sunDriftX: number;
-  sunDriftY: number;
-  viewOffsetX: number;
-  viewOffsetY: number;
-  intensity: number;
-  bloom: number;
-  haloStrength: number;
-  haloScale: number;
-  haloOffset: number;
-  starburst: number;
-  ghostStrength: number;
-  ghostSpread: number;
-  chromatic: number;
-  haze: number;
-  phaseName: OpticalPhaseName;
-}
-
-export const OPTICAL_KEYFRAMES: Keyframe[] = [
-  {
-    t: 0.00,
-    sunDriftX: 0.000,
-    sunDriftY: 0.000,
-    viewOffsetX: -0.020,
-    viewOffsetY: 0.015,
-    intensity: 1.00,
-    bloom: 0.55,
-    haloStrength: 0.18,
-    haloScale: 0.85,
-    haloOffset: 0.00,
-    starburst: 0.25,
-    ghostStrength: 0.15,
-    ghostSpread: 0.90,
-    chromatic: 0.30,
-    haze: 0.28,
-    phaseName: "CALM",
-  },
-  {
-    t: 0.18,
-    sunDriftX: 0.012,
-    sunDriftY: -0.008,
-    viewOffsetX: -0.010,
-    viewOffsetY: 0.008,
-    intensity: 1.28,
-    bloom: 0.88,
-    haloStrength: 0.65,
-    haloScale: 1.00,
-    haloOffset: 0.05,
-    starburst: 0.70,
-    ghostStrength: 0.55,
-    ghostSpread: 1.00,
-    chromatic: 0.45,
-    haze: 0.45,
-    phaseName: "APPROACH",
-  },
-  {
-    t: 0.36,
-    sunDriftX: 0.025,
-    sunDriftY: -0.020,
-    viewOffsetX: 0.005,
-    viewOffsetY: -0.005,
-    intensity: 1.58,
-    bloom: 1.25,
-    haloStrength: 1.22,
-    haloScale: 1.18,
-    haloOffset: 0.12,
-    starburst: 1.30,
-    ghostStrength: 1.00,
-    ghostSpread: 1.12,
-    chromatic: 0.75,
-    haze: 0.68,
-    phaseName: "PRIMARY PEAK",
-  },
-  {
-    t: 0.53,
-    sunDriftX: 0.010,
-    sunDriftY: -0.006,
-    viewOffsetX: 0.015,
-    viewOffsetY: -0.012,
-    intensity: 1.06,
-    bloom: 0.62,
-    haloStrength: 0.24,
-    haloScale: 0.90,
-    haloOffset: 0.04,
-    starburst: 0.32,
-    ghostStrength: 0.22,
-    ghostSpread: 0.85,
-    chromatic: 0.35,
-    haze: 0.32,
-    phaseName: "RELEASE",
-  },
-  {
-    t: 0.72,
-    sunDriftX: -0.008,
-    sunDriftY: 0.010,
-    viewOffsetX: 0.020,
-    viewOffsetY: -0.018,
-    intensity: 1.22,
-    bloom: 0.82,
-    haloStrength: 0.52,
-    haloScale: 1.02,
-    haloOffset: -0.02,
-    starburst: 0.65,
-    ghostStrength: 0.48,
-    ghostSpread: 1.18,
-    chromatic: 0.48,
-    haze: 0.46,
-    phaseName: "SECOND APPROACH",
-  },
-  {
-    t: 0.84,
-    sunDriftX: -0.018,
-    sunDriftY: 0.016,
-    viewOffsetX: 0.028,
-    viewOffsetY: -0.022,
-    intensity: 1.35,
-    bloom: 1.02,
-    haloStrength: 0.82,
-    haloScale: 1.08,
-    haloOffset: -0.06,
-    starburst: 0.92,
-    ghostStrength: 0.72,
-    ghostSpread: 1.35,
-    chromatic: 0.60,
-    haze: 0.55,
-    phaseName: "SECONDARY PEAK",
-  },
-  {
-    t: 1.00,
-    sunDriftX: -0.005,
-    sunDriftY: 0.004,
-    viewOffsetX: 0.035,
-    viewOffsetY: -0.025,
-    intensity: 1.02,
-    bloom: 0.58,
-    haloStrength: 0.20,
-    haloScale: 0.88,
-    haloOffset: -0.01,
-    starburst: 0.28,
-    ghostStrength: 0.18,
-    ghostSpread: 0.95,
-    chromatic: 0.32,
-    haze: 0.30,
-    phaseName: "SETTLE",
-  },
-];
-
-function smoothstep(edge0: number, edge1: number, x: number): number {
-  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
-/**
- * Pure deterministic mapping: progress [0, 1] → OpticalState.
- * Clamps input to [0, 1]. Same input always yields identical output.
- */
-export function computeOpticalState(rawProgress: number): OpticalState {
-  const p = Math.max(0, Math.min(1, rawProgress));
-
-  let k0 = OPTICAL_KEYFRAMES[0];
-  let k1 = OPTICAL_KEYFRAMES[1];
-  for (let i = 0; i < OPTICAL_KEYFRAMES.length - 1; i++) {
-    if (p <= OPTICAL_KEYFRAMES[i + 1].t) {
-      k0 = OPTICAL_KEYFRAMES[i];
-      k1 = OPTICAL_KEYFRAMES[i + 1];
-      break;
-    }
-  }
-
-  const span = k1.t - k0.t;
-  const factor = span > 0 ? smoothstep(0, 1, (p - k0.t) / span) : 0;
-
-  const sunX = BASE_SUN_X + lerp(k0.sunDriftX, k1.sunDriftX, factor);
-  const sunY = BASE_SUN_Y + lerp(k0.sunDriftY, k1.sunDriftY, factor);
-  const viewOffsetX = lerp(k0.viewOffsetX, k1.viewOffsetX, factor);
-  const viewOffsetY = lerp(k0.viewOffsetY, k1.viewOffsetY, factor);
-
-  const opticalCenterX = 0.5 + viewOffsetX;
-  const opticalCenterY = 0.5 + viewOffsetY;
-  const flareAxisAngle = Math.atan2(opticalCenterY - sunY, opticalCenterX - sunX);
-
-  const intensity     = lerp(k0.intensity, k1.intensity, factor);
-  const bloom         = lerp(k0.bloom, k1.bloom, factor);
-  const haloStrength  = lerp(k0.haloStrength, k1.haloStrength, factor);
-  const haloScale     = lerp(k0.haloScale, k1.haloScale, factor);
-  const haloOffset    = lerp(k0.haloOffset, k1.haloOffset, factor);
-  const starburst     = lerp(k0.starburst, k1.starburst, factor);
-  const ghostStrength = lerp(k0.ghostStrength, k1.ghostStrength, factor);
-  const ghostSpread   = lerp(k0.ghostSpread, k1.ghostSpread, factor);
-  const chromatic     = lerp(k0.chromatic, k1.chromatic, factor);
-  const haze          = lerp(k0.haze, k1.haze, factor);
-
-  const phaseName: OpticalPhaseName = factor < 0.5 ? k0.phaseName : k1.phaseName;
-
-  return {
-    sunX,
-    sunY,
-    viewOffsetX,
-    viewOffsetY,
-    flareAxisAngle,
-    intensity,
-    bloom,
-    haloStrength,
-    haloScale,
-    haloOffset,
-    starburst,
-    ghostStrength,
-    ghostSpread,
-    chromatic,
-    haze,
-    phaseName,
-  };
-}
-
-/**
- * Backward-compatible computeSunState wrapper.
- */
-export function computeSunState(rawProgress: number): SunState {
-  const opt = computeOpticalState(rawProgress);
-  return {
-    ...opt,
-    halo: opt.haloStrength,
-  };
-}
 
 // ============================================================
 // Default params
@@ -860,74 +612,13 @@ void main() {
   fragColor = vec4(color, 1.0);
 }`;
 
-// ============================================================
-// WebGL2 utilities
-// ============================================================
+import {
+  linkProgram,
+  uploadTexture,
+  createDummyTexture,
+  loadImage,
+} from "./sun/sun-shaders";
 
-interface WebGLRendererState {
-  gl: WebGL2RenderingContext;
-  program: WebGLProgram;
-  bgTex?: WebGLTexture;
-  vao: WebGLVertexArrayObject;
-  vbo: WebGLBuffer;
-}
-
-function compileShader(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader {
-  const s = gl.createShader(type)!;
-  gl.shaderSource(s, src);
-  gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-    const info = gl.getShaderInfoLog(s);
-    gl.deleteShader(s);
-    throw new Error(`Shader compile error: ${info}`);
-  }
-  return s;
-}
-
-function linkProgram(gl: WebGL2RenderingContext, vert: string, frag: string): WebGLProgram {
-  const vs = compileShader(gl, gl.VERTEX_SHADER, vert);
-  const fs = compileShader(gl, gl.FRAGMENT_SHADER, frag);
-  const prog = gl.createProgram()!;
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    const info = gl.getProgramInfoLog(prog);
-    gl.deleteProgram(prog);
-    throw new Error(`Program link error: ${info}`);
-  }
-  gl.deleteShader(vs);
-  gl.deleteShader(fs);
-  return prog;
-}
-
-function uploadTexture(gl: WebGL2RenderingContext, source: HTMLImageElement | HTMLCanvasElement): WebGLTexture {
-  const tex = gl.createTexture()!;
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-  return tex;
-}
-
-function createDummyTexture(gl: WebGL2RenderingContext): WebGLTexture {
-  const tex = gl.createTexture()!;
-  gl.bindTexture(gl.TEXTURE_2D, tex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
-  return tex;
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
 
 async function initWebGLRenderer(
   canvas: HTMLCanvasElement,
