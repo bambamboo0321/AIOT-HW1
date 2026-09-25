@@ -12,6 +12,17 @@ import {
   normalizeCountyName,
 } from "@/lib/transformations/air-quality";
 import { formatTaipeiDateTime } from "@/lib/transformations/daily";
+import {
+  ActivityIcon,
+  AlertTriangleIcon,
+  InfoIcon,
+  RefreshCwIcon,
+  BarChart2Icon,
+  DropletIcon,
+  WindIcon,
+  SunIcon,
+  ClockIcon,
+} from "@/components/ui/Icons";
 
 interface AirQualityCardProps {
   region: string;
@@ -85,13 +96,28 @@ export function AirQualityCard({
     return getAqiCategory(countySummary.maxAqi);
   }, [countySummary]);
 
+  // Split published time into date and time for robust 2-line rendering without character breakage
+  const formattedPublishTime = useMemo(() => {
+    if (!activeStation?.publishedAt) return { date: "—", time: "" };
+    const full = formatTaipeiDateTime(activeStation.publishedAt);
+    const spaceIdx = full.indexOf(" ");
+    if (spaceIdx === -1) return { date: full, time: "" };
+    return {
+      date: full.slice(0, spaceIdx),
+      time: full.slice(spaceIdx + 1),
+    };
+  }, [activeStation]);
+
   return (
     <section className="dashboard-card air-quality-card" aria-label={`${region} 空氣品質監測`}>
       {/* Header */}
       <div className="current-header">
         <div className="current-title-area">
           <div className="current-badge-group">
-            <span className="badge badge-aqi">🍃 空氣品質監測 (MOENV)</span>
+            <span className="badge badge-aqi">
+              <ActivityIcon size={13} className="badge-icon" />
+              <span>空氣品質監測 (MOENV)</span>
+            </span>
             <span
               className="badge"
               style={{
@@ -106,7 +132,8 @@ export function AirQualityCard({
             </span>
             {isDelayed && (
               <span className="badge badge-warning" title="觀測發布時間距今已超過 90 分鐘">
-                ⚠️ 資料可能延遲
+                <AlertTriangleIcon size={13} className="badge-icon" />
+                <span>資料可能延遲</span>
               </span>
             )}
           </div>
@@ -119,7 +146,8 @@ export function AirQualityCard({
             )}
           </h2>
           <span className="section-subtitle aqi-rule-note">
-            ⚠️ 縣市 AQI 採區內最高值（最差空氣品質測站代表）・非全縣市平均
+            <InfoIcon size={13} className="rule-note-icon" />
+            <span>縣市 AQI 採區內最高值（最差空氣品質測站代表）・非全縣市平均</span>
           </span>
         </div>
 
@@ -141,7 +169,7 @@ export function AirQualityCard({
                 const aqiText = s.aqi !== null ? `AQI ${s.aqi}` : "缺測";
                 return (
                   <option key={s.stationId} value={s.stationId}>
-                    {s.stationName} ({aqiText}){isWorst ? " 🔥區內最高" : ""}
+                    {s.stationName} ({aqiText}){isWorst ? " ★區內最高" : ""}
                   </option>
                 );
               })}
@@ -160,13 +188,14 @@ export function AirQualityCard({
         </div>
       ) : error ? (
         <div className="obs-error-state" role="alert">
-          <div className="obs-error-icon">⚠️</div>
+          <div className="obs-error-icon"><AlertTriangleIcon size={20} /></div>
           <div className="obs-error-content">
             <p className="obs-error-msg">{error}</p>
             <p className="obs-error-sub">預報與即時天氣功能不受影響，可點擊重試載入空氣品質。</p>
           </div>
           <button type="button" className="btn btn-secondary btn-retry" onClick={onRetry}>
-            🔄 重新載入空氣品質
+            <RefreshCwIcon size={14} className="btn-icon" />
+            <span>重新載入空氣品質</span>
           </button>
         </div>
       ) : !activeStation ? (
@@ -202,11 +231,14 @@ export function AirQualityCard({
             <div className="aqi-summary-desc">{countyAqiCategory.description}</div>
           </div>
 
-          {/* Metric Grid for the currently inspected station */}
-          <div className="current-grid aqi-grid">
+          {/* Detailed Metric Grid for the currently inspected station */}
+          <div className="aqi-detail-grid">
             {/* 測站 AQI */}
-            <div className="current-metric-card" data-testid="metric-aqi">
-              <span className="metric-label">📊 測站 AQI 指標</span>
+            <div className="current-metric-card aqi-metric-hero" data-testid="metric-aqi">
+              <span className="metric-label">
+                <BarChart2Icon size={14} className="metric-icon" />
+                <span>測站 AQI 指標</span>
+              </span>
               <span
                 className="metric-value font-mono"
                 style={{ color: activeAqiCategory.color }}
@@ -223,7 +255,10 @@ export function AirQualityCard({
 
             {/* PM2.5 */}
             <div className="current-metric-card" data-testid="metric-pm25">
-              <span className="metric-label">🌫️ 細懸浮微粒 (PM2.5)</span>
+              <span className="metric-label">
+                <DropletIcon size={14} className="metric-icon" />
+                <span>細懸浮微粒 (PM2.5)</span>
+              </span>
               <span className="metric-value font-mono">
                 {activeStation.pm25 !== null ? `${activeStation.pm25} μg/m³` : "—"}
               </span>
@@ -232,7 +267,10 @@ export function AirQualityCard({
 
             {/* PM10 */}
             <div className="current-metric-card" data-testid="metric-pm10">
-              <span className="metric-label">💨 懸浮微粒 (PM10)</span>
+              <span className="metric-label">
+                <WindIcon size={14} className="metric-icon" />
+                <span>懸浮微粒 (PM10)</span>
+              </span>
               <span className="metric-value font-mono">
                 {activeStation.pm10 !== null ? `${activeStation.pm10} μg/m³` : "—"}
               </span>
@@ -240,9 +278,12 @@ export function AirQualityCard({
             </div>
 
             {/* 主要污染物 */}
-            <div className="current-metric-card" data-testid="metric-pollutant">
-              <span className="metric-label">⚠️ 主要污染物</span>
-              <span className="metric-value font-mono font-status">
+            <div className="current-metric-card aqi-pollutant-card" data-testid="metric-pollutant">
+              <span className="metric-label">
+                <AlertTriangleIcon size={14} className="metric-icon" />
+                <span>主要污染物</span>
+              </span>
+              <span className="metric-value font-mono font-status pollutant-value">
                 {activeStation.primaryPollutant || "無特定"}
               </span>
               <span className="metric-desc">指標影響首要項目</span>
@@ -250,7 +291,10 @@ export function AirQualityCard({
 
             {/* 臭氧 O3 */}
             <div className="current-metric-card" data-testid="metric-ozone">
-              <span className="metric-label">☀️ 臭氧 (O₃)</span>
+              <span className="metric-label">
+                <SunIcon size={14} className="metric-icon" />
+                <span>臭氧 (O₃)</span>
+              </span>
               <span className="metric-value font-mono">
                 {activeStation.ozone !== null ? `${activeStation.ozone} ppb` : "—"}
               </span>
@@ -258,11 +302,17 @@ export function AirQualityCard({
             </div>
 
             {/* 發布時間 */}
-            <div className="current-metric-card" data-testid="metric-aqi-time">
-              <span className="metric-label">🕒 觀測發布時間</span>
-              <span className="metric-value font-mono font-time">
-                {formatTaipeiDateTime(activeStation.publishedAt)}
+            <div className="current-metric-card aqi-time-card" data-testid="metric-aqi-time">
+              <span className="metric-label">
+                <ClockIcon size={14} className="metric-icon" />
+                <span>觀測發布時間</span>
               </span>
+              <div className="metric-value font-mono font-time aqi-time-split">
+                <span className="aqi-time-date">{formattedPublishTime.date}</span>
+                {formattedPublishTime.time && (
+                  <span className="aqi-time-hour">{formattedPublishTime.time}</span>
+                )}
+              </div>
               <span className="metric-desc">
                 測站：{activeStation.stationName} ({activeStation.stationId})
               </span>

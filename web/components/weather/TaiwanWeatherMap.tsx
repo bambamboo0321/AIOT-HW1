@@ -18,6 +18,7 @@ import {
 import { prepareUnifiedMapMarkers } from "@/lib/map/layer-helpers";
 import { getTaipeiWeekday, getTaipeiDateString } from "@/lib/transformations/daily";
 import { TAIWAN_MAP_BOUNDARY_DISCLAIMER } from "@/lib/data/taiwan-counties";
+import { LayersIcon, InfoIcon, TargetIcon, MAP_LAYER_ICON_MAP, ChartSelectIcon, LayerRealtimeIcon } from "@/components/ui/Icons";
 
 // Dynamic import with ssr: false to prevent window is not defined errors
 const LeafletMap = dynamic(() => import("./LeafletMapInner"), {
@@ -129,7 +130,10 @@ export function TaiwanWeatherMap({
       <div className="map-header">
         <div>
           <div className="map-title-row">
-            <h3 className="section-title">🗺️ 臺灣氣象與空氣品質互動地圖</h3>
+            <h3 className="section-title">
+              <LayersIcon size={18} className="title-icon" />
+              <span>臺灣氣象與空氣品質互動地圖</span>
+            </h3>
             <span className="badge badge-semantic">{activeLayer.categoryLabel}</span>
           </div>
           <span className="section-subtitle">
@@ -165,7 +169,10 @@ export function TaiwanWeatherMap({
               data-testid="map-realtime-note"
             >
               <span className="realtime-pulse-dot" />
-              <span className="realtime-note-text">🕒 當前即時觀測</span>
+              <span className="realtime-note-text">
+                <LayerRealtimeIcon size={13} className="realtime-note-icon" aria-hidden="true" />
+                當前即時觀測
+              </span>
               <span className="realtime-note-sub">（日期僅套用於預報圖層）</span>
             </div>
           )}
@@ -175,7 +182,10 @@ export function TaiwanWeatherMap({
       {/* Layer Switcher Control */}
       <div className="map-layer-control-panel" role="region" aria-label="地圖圖層切換器">
         <div className="map-layer-header">
-          <span className="layer-control-label">📊 選擇圖層指標：</span>
+          <span className="layer-control-label">
+            <ChartSelectIcon size={15} className="control-icon" />
+            <span>選擇圖層指標：</span>
+          </span>
           <span className="map-layer-current-badge">
             目前圖層：<b>{activeLayer.name}</b>（單位：{activeLayer.unit}）
           </span>
@@ -195,9 +205,11 @@ export function TaiwanWeatherMap({
                 onClick={() => handleLayerSelect(layer.id)}
                 data-testid={`layer-btn-${layer.id}`}
               >
-                <span className="layer-btn-icon" aria-hidden="true">
-                  {layer.icon}
-                </span>
+                {/* SVG icon from MAP_LAYER_ICON_MAP; graceful fallback to nothing */}
+                {(() => {
+                  const IconComp = MAP_LAYER_ICON_MAP[layer.id];
+                  return IconComp ? <IconComp size={13} className="layer-btn-icon" aria-hidden="true" /> : null;
+                })()}
                 <span className="layer-btn-text">{layer.name}</span>
               </button>
             );
@@ -228,7 +240,7 @@ export function TaiwanWeatherMap({
       {/* Semantic Zoom User Interaction Hint & Focus County Control */}
       <div className="map-zoom-hint" data-testid="map-zoom-hint" role="status">
         <div className="hint-main">
-          <span className="hint-icon" aria-hidden="true">💡</span>
+          <InfoIcon size={14} className="hint-icon" />
           <span className="hint-text">滾輪／雙指縮放以查看測站詳情</span>
         </div>
         <div className="hint-actions">
@@ -241,7 +253,8 @@ export function TaiwanWeatherMap({
               title={`以地圖完整顯示${selectedRegion}行政邊界`}
               aria-label={`聚焦所選縣市 (${selectedRegion})`}
             >
-              🎯 聚焦{selectedRegion}
+              <TargetIcon size={13} className="btn-icon" aria-hidden="true" />
+              <span>聚焦{selectedRegion}</span>
             </button>
           )}
           <span className="hint-badge" data-testid="map-zoom-tier-badge">
@@ -265,7 +278,7 @@ export function TaiwanWeatherMap({
 
       {/* Map Boundary Disclaimer Notice */}
       <div className="map-boundary-notice" data-testid="map-boundary-notice">
-        <span className="notice-icon" aria-hidden="true">ℹ️</span>
+        <InfoIcon size={14} className="notice-icon" />
         <span className="notice-text">{TAIWAN_MAP_BOUNDARY_DISCLAIMER}</span>
       </div>
 

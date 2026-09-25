@@ -316,7 +316,8 @@ describe("Milestone M13 Taiwan 22 Counties Administrative Boundaries & Precision
     // Hint bar focus button
     const focusBtn = screen.getByTestId("map-focus-btn");
     expect(focusBtn).toBeDefined();
-    expect(focusBtn.textContent).toContain("🎯 聚焦臺北市");
+    // Hint bar focus button — text contains region name (emoji was replaced with SVG icon in M13.1)
+    expect(focusBtn.textContent).toContain("聚焦臺北市");
 
     // Precomputed bounds for Taipei City exist and are valid WGS84 coordinates
     const taipeiBounds = getCountyBounds("臺北市");

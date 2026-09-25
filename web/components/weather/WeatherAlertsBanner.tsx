@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { WeatherAlert, AlertSeverity } from "@/lib/contracts/alerts";
 import { filterAlertsByCounty } from "@/lib/transformations/alerts";
 import { formatTaipeiDateTime } from "@/lib/transformations/daily";
+import { ShieldCheckIcon, AlertTriangleIcon } from "@/components/ui/Icons";
 
 export interface WeatherAlertsBannerProps {
   selectedRegion: string;
@@ -75,7 +76,7 @@ export function WeatherAlertsBanner({
     return (
       <div className="alerts-container alerts-error-box" data-testid="weather-alerts-error">
         <div className="alerts-error-content">
-          <span className="alerts-error-icon">⚠️</span>
+          <span className="alerts-error-icon"><AlertTriangleIcon size={16} /></span>
           <span className="alerts-error-text">警特報載入異常：{error}</span>
         </div>
         {onRetry && (
@@ -99,9 +100,9 @@ export function WeatherAlertsBanner({
   // Case 1: No alerts in all of Taiwan
   if (alerts.length === 0) {
     return (
-      <div className="alerts-container alerts-calm" data-testid="weather-alerts-none">
+      <div className="alerts-container alerts-calm alerts-banner-calm" data-testid="weather-alerts-none">
         <div className="alerts-calm-content">
-          <span className="alerts-calm-icon">🛡️</span>
+          <span className="alerts-calm-icon"><ShieldCheckIcon size={16} /></span>
           <span className="alerts-calm-title">目前無有效天氣警特報</span>
           <span className="alerts-calm-subtitle">中央氣象署目前無針對全臺發布生效中之災害性天氣警特報</span>
         </div>
@@ -114,14 +115,14 @@ export function WeatherAlertsBanner({
 
   return (
     <div
-      className="alerts-container alerts-active-section"
+      className="alerts-container alerts-active-section alerts-banner-active"
       role="region"
       aria-label="天氣警特報"
       data-testid="weather-alerts-banner"
     >
       <div className="alerts-banner-header">
         <div className="alerts-banner-title-group">
-          <span className="alerts-warning-icon">⚠️</span>
+          <span className="alerts-warning-icon"><AlertTriangleIcon size={18} /></span>
           <h2 className="alerts-banner-title">天氣警特報</h2>
           <span className="alerts-count-badge">
             {regionalAlerts.length > 0

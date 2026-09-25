@@ -1,16 +1,15 @@
 /**
  * UV Index (紫外線指數) Pure Transformation & Classification Utilities
  *
- * Implements Central Weather Administration (CWA) and WHO standards:
- * - 0～2: 低量級 (綠色)
- * - 3～5: 中量級 (黃色)
- * - 6～7: 高量級 (橘色)
- * - 8～10: 過量級 (紅色) (注意：官方名稱為「過量級」，不得稱為危險級)
- * - 11+: 危險級 (紫色) (支援大於等於 11 之「11+」呈現，不設上限)
+ * Implements Central Weather Administration (CWA) and WHO official 5-tier classification standards (官方標準分類名稱與級距):
+ * - 0～2: 低量級 (官方標準色名：綠色；本專案 UI 對應色：#10b981)
+ * - 3～5: 中量級 (官方標準色名：黃色；本專案 UI 對應色：#eab308)
+ * - 6～7: 高量級 (官方標準色名：橘色；本專案 UI 對應色：#f97316)
+ * - 8～10: 過量級 (官方標準色名：紅色；本專案 UI 對應色：#ef4444) (注意：官方名稱為「過量級」，不得稱為危險級)
+ * - 11+: 危險級 (官方標準色名：紫色；本專案 UI 對應色：#9333ea) (支援大於等於 11 之「11+」呈現，不設上限)
  * - null/非法值: 無資料 (灰色)
  *
- * 註：各 Hex 色碼（如 #10b981、#eab308、#f97316、#ef4444、#9333ea）
- * 均為本專案 UI 視覺呈現對應色，非中央氣象署官方公布之絕對色碼規範。
+ * 說明：本專案使用的 Hex 色碼均為「本專案 UI 對應色 (project presentation color)」，非中央氣象署官方公布之唯一絕對色碼規範。
  */
 
 import { UVExposureLevel, UVForecastItem } from "../contracts/weather";

@@ -418,14 +418,17 @@ describe("Milestone M12: UVTrendChart & UV Integration Tests", () => {
     };
 
     it("clicking a UV point updates UVCard without changing temperature date filters", () => {
-      render(
-        <ForecastDashboard
-          initialData={mockFullData}
-          initialObservations={mockObs}
-          initialAirQuality={mockAq}
-          initialAlerts={mockAlerts}
-        />
-      );
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-24T12:00:00+08:00"));
+      try {
+        render(
+          <ForecastDashboard
+            initialData={mockFullData}
+            initialObservations={mockObs}
+            initialAirQuality={mockAq}
+            initialAlerts={mockAlerts}
+          />
+        );
 
       // Initially on 2026-09-24 (today/first available)
       const uvCard = screen.getByTestId("uv-card");
@@ -441,8 +444,11 @@ describe("Milestone M12: UVTrendChart & UV Integration Tests", () => {
       expect(uvCard.textContent).toContain("2026-09-25");
       expect(uvCard.textContent).toContain("優先待在陰影處");
 
-      // Verify header and dashboard remain on 臺北市
-      expect(screen.getByLabelText("臺北市 氣溫走勢圖")).toBeDefined();
+        // Verify header and dashboard remain on 臺北市
+        expect(screen.getByLabelText("臺北市 氣溫走勢圖")).toBeDefined();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("safely resets or retains valid date when switching county", () => {

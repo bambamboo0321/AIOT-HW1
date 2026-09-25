@@ -15,16 +15,18 @@ import {
   computeSummaryKpis,
   formatTaipeiDateTime,
 } from "@/lib/transformations/daily";
+import { resolveWeatherBackground } from "@/lib/theme/background-assets";
+import { filterStationsByCounty, findClosestStation } from "@/lib/transformations/stations";
+import { TAIWAN_COUNTY_COORDINATES } from "@/lib/data/county-coordinates";
 import { WeatherAlertsBanner } from "./WeatherAlertsBanner";
 import { DashboardControls } from "./DashboardControls";
 import { CurrentWeatherCard } from "./CurrentWeatherCard";
 import { AirQualityCard } from "./AirQualityCard";
 import { UVCard } from "./UVCard";
 import { KpiCards } from "./KpiCards";
-import { TemperatureTrendChart } from "./TemperatureTrendChart";
+import { TemperatureForecastSection } from "./TemperatureForecastSection";
 import { UVTrendChart } from "./UVTrendChart";
 import { findDefaultUvDate, getTaipeiTomorrowDateString } from "@/lib/transformations/uv";
-import { DailyForecastGrid } from "./DailyForecastGrid";
 import { TaiwanWeatherMap } from "./TaiwanWeatherMap";
 import { RawIntervalDetails } from "./RawIntervalDetails";
 import { LoadingState } from "../ui/LoadingState";
@@ -265,6 +267,99 @@ export function ForecastDashboard({
     return regions.includes("臺北市") ? "臺北市" : regions[0];
   }, [regions, selectedRegionRaw]);
 
+  // Representative station for selected region to derive current observations
+  const representativeStation = useMemo(() => {
+    if (!observationData?.stations) return null;
+    const countyStations = filterStationsByCounty(observationData.stations, selectedRegion);
+    if (countyStations.length === 0) return null;
+    const countyCoords = TAIWAN_COUNTY_COORDINATES[selectedRegion];
+    if (countyCoords) {
+      return findClosestStation(countyStations, countyCoords.latitude, countyCoords.longitude);
+    }
+    return countyStations[0];
+  }, [observationData, selectedRegion]);
+
+  // Active weather alert for selected region to detect rain/storm conditions
+  const activeCountyAlert = useMemo(() => {
+    if (!alertsData?.alerts) return null;
+    return alertsData.alerts.find(
+      (a) => a.affectedAreas.includes(selectedRegion) || a.isNationwide
+    );
+  }, [alertsData, selectedRegion]);
+
+  // M13.4.1: Resolve dynamic weather background scenario based on Taipei time and strict semantics
+  const resolvedBg = useMemo(() => {
+    const observedAt =
+      representativeStation?.observedAt ||
+      observationData?.fetchedAt ||
+      data?.fetchedAt ||
+      null;
+    const dailyPrecipitation = representativeStation?.dailyPrecipitation ?? null;
+    const alertHeadline = activeCountyAlert
+      ? `${activeCountyAlert.event} ${activeCountyAlert.headline}`
+      : null;
+
+    // Strict semantic adherence:
+    // - dailyPrecipitation is cumulative daily rainfall, NOT current rainfall.
+    // - shortTermPrecipitation (10min/1hr) is not in the current O-A0003-001 contract yet.
+    // - Alerts are auxiliary only and cannot prove current rain.
+    // - Without reliable short-term precipitation or real-time weather phenomenon,
+    //   background safely switches based on time using neutral scenario.
+    // Development-only background preview support via URL query parameter (e.g. ?bg=sunset, ?bg=dawn)
+    let devOverride: import("@/lib/theme/background-assets").WeatherScenarioKey | null = null;
+    if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const bgParam = urlParams.get("bg");
+        if (bgParam) {
+          devOverride = bgParam as import("@/lib/theme/background-assets").WeatherScenarioKey;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return resolveWeatherBackground({
+      observedAt,
+      dailyPrecipitation,
+      shortTermPrecipitation: null,
+      currentWeatherPhenomenon: null,
+      weatherAlertHeadline: alertHeadline,
+      overrideScenario: devOverride,
+    });
+  }, [representativeStation, observationData?.fetchedAt, data?.fetchedAt, activeCountyAlert]);
+
+  // Apply resolved background to the single #weather-bg-layer with gentle opacity fade
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const bgEl = document.getElementById("weather-bg-layer");
+    if (!bgEl) return;
+
+    const currentScenario = bgEl.getAttribute("data-weather-scenario");
+    if (currentScenario === resolvedBg.backgroundKey) return;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (prefersReducedMotion) {
+      bgEl.style.backgroundImage = `url('${resolvedBg.assetPath}'), ${resolvedBg.fallbackGradient}`;
+      bgEl.setAttribute("data-weather-scenario", resolvedBg.backgroundKey);
+      return;
+    }
+
+    // Cross-fade: opacity 300~500ms
+    bgEl.classList.add("bg-fading");
+    const timer = setTimeout(() => {
+      bgEl.style.backgroundImage = `url('${resolvedBg.assetPath}'), ${resolvedBg.fallbackGradient}`;
+      bgEl.setAttribute("data-weather-scenario", resolvedBg.backgroundKey);
+      bgEl.classList.remove("bg-fading");
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+      bgEl.classList.remove("bg-fading");
+    };
+  }, [resolvedBg]);
+
   // Find intervals and UV forecasts for selected region
   const activeRegionData = useMemo(() => {
     if (!data || !selectedRegion) return null;
@@ -372,28 +467,33 @@ export function ForecastDashboard({
 
   return (
     <div className="dashboard-container">
-      {/* Header */}
+      {/* Header: Clean, compact Apple Weather inspired header */}
       <header className="dashboard-header">
         <div className="header-brand">
-          <div className="brand-badge">CWA OPEN DATA</div>
-          <h1 className="header-title">Taiwan Weather Dashboard</h1>
+          <h1 className="header-title">
+            臺灣即時氣象 <span className="header-title-sub">Taiwan Weather Dashboard</span>
+          </h1>
           <p className="header-subtitle">
-            中央氣象署七天縣市天氣預報・互動式現代氣象儀表板
+            中央氣象署即時觀測・七天預報・空氣品質儀表板
           </p>
         </div>
 
-        <div className="header-metadata">
-          <div className="meta-item">
-            <span className="meta-label">資料集代碼</span>
-            <span className="meta-value font-mono">{data?.datasetId || "F-D0047-091"}</span>
-          </div>
-          <div className="meta-item">
-            <span className="meta-label">最後同步時間 (Taipei)</span>
-            <span className="meta-value font-mono">{formattedFetchedAt}</span>
-          </div>
-          <div className="meta-item">
-            <span className="meta-label">資料來源</span>
-            <span className="meta-value">交通部中央氣象署</span>
+        <div className="header-metadata" aria-label="資料同步與來源資訊">
+          <div className="meta-text-group">
+            <span className="meta-line">
+              <span className="meta-label">最後同步 (Taipei)：</span>
+              <span className="meta-value font-mono">{formattedFetchedAt}</span>
+            </span>
+            <span className="meta-divider" aria-hidden="true">•</span>
+            <span className="meta-line">
+              <span className="meta-label">資料來源：</span>
+              <span className="meta-value">交通部中央氣象署</span>
+            </span>
+            <span className="meta-divider" aria-hidden="true">•</span>
+            <span className="meta-line meta-dataset">
+              <span className="meta-label">資料集：</span>
+              <span className="meta-value font-mono">{data?.datasetId || "F-D0047-091"}</span>
+            </span>
           </div>
         </div>
       </header>
@@ -436,41 +536,46 @@ export function ForecastDashboard({
             isLoading={isLoading || isObservationLoading || isAirQualityLoading || isAlertsLoading}
           />
 
-          {/* Real-time Weather Station Observation */}
-          <CurrentWeatherCard
-            region={selectedRegion}
-            observationData={observationData}
-            isLoading={isObservationLoading}
-            error={observationError}
-            onRetry={fetchObservations}
-          />
+          {/* Hero Weather Section: Primary Current Weather + UV + AQI */}
+          <div className="hero-weather-grid">
+            {/* Real-time Weather Station Observation */}
+            <CurrentWeatherCard
+              region={selectedRegion}
+              observationData={observationData}
+              isLoading={isObservationLoading}
+              error={observationError}
+              onRetry={fetchObservations}
+            />
 
-          {/* Real-time Air Quality Observation (MOENV) */}
-          <AirQualityCard
-            region={selectedRegion}
-            airQualityData={airQualityData}
-            isLoading={isAirQualityLoading}
-            error={airQualityError}
-            onRetry={fetchAirQuality}
-          />
+            {/* UV Index Forecast Card */}
+            <UVCard
+              region={selectedRegion}
+              selectedDate={selectedUvDate}
+              uvItem={activeUvItem}
+              tomorrowUvItem={tomorrowUvItem}
+              isLoading={isLoading}
+              error={null}
+            />
 
-          {/* UV Index Forecast Card */}
-          <UVCard
-            region={selectedRegion}
-            selectedDate={selectedUvDate}
-            uvItem={activeUvItem}
-            tomorrowUvItem={tomorrowUvItem}
-            isLoading={isLoading}
-            error={null}
-          />
+            {/* Real-time Air Quality Observation (MOENV) */}
+            <AirQualityCard
+              region={selectedRegion}
+              airQualityData={airQualityData}
+              isLoading={isAirQualityLoading}
+              error={airQualityError}
+              onRetry={fetchAirQuality}
+            />
+          </div>
 
           {/* KPI Summary Cards */}
           <KpiCards region={selectedRegion} kpis={summaryKpis} />
 
-          {/* Temperature Trend Chart */}
-          <TemperatureTrendChart
+          {/* Unified 7-Day Temperature Forecast Section (Segmented Control: 趨勢圖 / 每日詳情) */}
+          <TemperatureForecastSection
             dailyList={filteredDailyList}
             region={selectedRegion}
+            startDate={startDate}
+            endDate={endDate}
           />
 
           {/* Daily Daytime UV Trend Chart */}
@@ -479,12 +584,6 @@ export function ForecastDashboard({
             region={selectedRegion}
             selectedDate={selectedUvDate}
             onSelectDate={setSelectedUvDateRaw}
-          />
-
-          {/* Daily Forecast Grid */}
-          <DailyForecastGrid
-            dailyList={filteredDailyList}
-            region={selectedRegion}
           />
 
           {/* Interactive Taiwan Map */}

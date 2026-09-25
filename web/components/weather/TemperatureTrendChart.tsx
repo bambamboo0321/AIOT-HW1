@@ -2,19 +2,35 @@
 
 import React, { useState } from "react";
 import { DailyForecast, getTaipeiWeekday } from "@/lib/transformations/daily";
+import { BarChart2Icon } from "@/components/ui/Icons";
 
-interface TemperatureTrendChartProps {
+export interface TemperatureTrendChartProps {
   dailyList: readonly DailyForecast[];
   region: string;
+  isEmbedded?: boolean;
 }
 
-export function TemperatureTrendChart({ dailyList, region }: TemperatureTrendChartProps) {
+export function TemperatureTrendChart({
+  dailyList,
+  region,
+  isEmbedded = false,
+}: TemperatureTrendChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   if (!dailyList || dailyList.length === 0) {
+    if (isEmbedded) {
+      return (
+        <p className="state-subtitle" style={{ textAlign: "center", padding: "32px 0" }}>
+          目前無足夠的預報資料以繪製趨勢圖。
+        </p>
+      );
+    }
     return (
       <section className="dashboard-card" aria-label="氣溫趨勢圖">
-        <h3 className="section-title">📈 氣溫趨勢圖</h3>
+        <h3 className="section-title">
+          <BarChart2Icon size={16} className="title-icon" />
+          <span>氣溫趨勢圖</span>
+        </h3>
         <p className="state-subtitle" style={{ textAlign: "center", padding: "32px 0" }}>
           目前無足夠的預報資料以繪製趨勢圖。
         </p>
@@ -103,28 +119,21 @@ export function TemperatureTrendChart({ dailyList, region }: TemperatureTrendCha
 
   const activeDay = hoveredIndex !== null ? dailyList[hoveredIndex] : null;
 
-  return (
-    <section className="dashboard-card chart-card" aria-label="氣溫趨勢圖">
-      <div className="chart-header">
-        <div>
-          <h3 className="section-title">📈 氣溫趨勢變化</h3>
-          <span className="section-subtitle">
-            {region} 每日最高溫與最低溫走勢 ({dailyList.length} 天)
-          </span>
-        </div>
-        <div className="chart-legend" aria-hidden="true">
-          <div className="legend-item">
-            <span className="legend-dot" style={{ backgroundColor: "#ef4444" }} />
-            <span>最高溫 (°C)</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-dot" style={{ backgroundColor: "#06b6d4" }} />
-            <span>最低溫 (°C)</span>
-          </div>
-        </div>
+  const legendElement = (
+    <div className="chart-legend" aria-hidden="true">
+      <div className="legend-item">
+        <span className="legend-dot" style={{ backgroundColor: "#ef4444" }} />
+        <span>最高溫 (°C)</span>
       </div>
+      <div className="legend-item">
+        <span className="legend-dot" style={{ backgroundColor: "#06b6d4" }} />
+        <span>最低溫 (°C)</span>
+      </div>
+    </div>
+  );
 
-      <div className="chart-svg-container">
+  const innerChart = (
+    <div className="chart-svg-container chart-scroll-wrapper">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="trend-svg"
@@ -154,7 +163,7 @@ export function TemperatureTrendChart({ dailyList, region }: TemperatureTrendCha
                   y1={y}
                   x2={width - paddingRight}
                   y2={y}
-                  stroke="#334155"
+                  stroke="rgba(255, 255, 255, 0.08)"
                   strokeDasharray="4 4"
                   strokeWidth="1"
                 />
@@ -313,11 +322,39 @@ export function TemperatureTrendChart({ dailyList, region }: TemperatureTrendCha
               </b>
             </div>
             {activeDay.isPartial && (
-              <div className="tooltip-badge">⚠️ 部分預報區間</div>
+              <div className="tooltip-badge">部分預報區間</div>
             )}
           </div>
         )}
       </div>
+    );
+
+  if (isEmbedded) {
+    return (
+      <div className="chart-embedded-wrapper" data-testid="temp-chart-container">
+        <div className="chart-embedded-toolbar">
+          {legendElement}
+        </div>
+        {innerChart}
+      </div>
+    );
+  }
+
+  return (
+    <section className="dashboard-card chart-card" aria-label="氣溫趨勢圖">
+      <div className="chart-header">
+        <div>
+          <h3 className="section-title">
+            <BarChart2Icon size={16} className="title-icon" />
+            <span>氣溫趨勢變化</span>
+          </h3>
+          <span className="section-subtitle">
+            {region} 每日最高溫與最低溫走勢 ({dailyList.length} 天)
+          </span>
+        </div>
+        {legendElement}
+      </div>
+      {innerChart}
     </section>
   );
 }

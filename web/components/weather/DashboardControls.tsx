@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { MapPinIcon, CalendarIcon, RefreshCwIcon } from "@/components/ui/Icons";
 
 interface DashboardControlsProps {
   regions: readonly string[];
@@ -39,7 +40,8 @@ export function DashboardControls({
         {/* 縣市選擇 */}
         <div className="control-group">
           <label htmlFor="region-select" className="control-label">
-            📍 預報縣市
+            <MapPinIcon size={14} className="control-icon" />
+            <span>預報縣市</span>
           </label>
           <select
             id="region-select"
@@ -59,7 +61,8 @@ export function DashboardControls({
         {/* 開始日期 */}
         <div className="control-group">
           <label htmlFor="start-date-select" className="control-label">
-            🗓️ 開始日期
+            <CalendarIcon size={14} className="control-icon" />
+            <span>開始日期</span>
           </label>
           <select
             id="start-date-select"
@@ -79,7 +82,8 @@ export function DashboardControls({
         {/* 結束日期 */}
         <div className="control-group">
           <label htmlFor="end-date-select" className="control-label">
-            🗓️ 結束日期
+            <CalendarIcon size={14} className="control-icon" />
+            <span>結束日期</span>
           </label>
           <select
             id="end-date-select"
@@ -114,7 +118,8 @@ export function DashboardControls({
             disabled={isLoading}
             aria-busy={isLoading}
           >
-            {isLoading ? "更新中..." : "🔄 重新載入"}
+            <RefreshCwIcon size={14} className={isLoading ? "spin-icon" : "btn-icon"} />
+            <span>{isLoading ? "更新中..." : "重新載入"}</span>
           </button>
         </div>
       </div>

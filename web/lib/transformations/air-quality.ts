@@ -3,14 +3,14 @@
  *
  * Implements:
  * - County name normalization ("台" <-> "臺")
- * - Official MOENV 6-tier AQI level and color mapping:
- *   - 0-50: 良好 (官方色彩：綠色)
- *   - 51-100: 普通 (官方色彩：黃色)
- *   - 101-150: 對敏感族群不健康 (官方色彩：橘色)
- *   - 151-200: 對所有族群不健康 (官方色彩：紅色)
- *   - 201-300: 非常不健康 (官方色彩：紫色)
- *   - 301-500: 危害 (官方色彩：褐紅色)
- *   (註：各 Hex 色碼如 #10b981、#eab308 等為本專案 UI 視覺呈現對應色，非環境部官方公布之絕對色碼規範)
+ * - Official MOENV 6-tier AQI classification names and thresholds (環境部官方標準分類名稱與級距):
+ *   - 0-50: 良好 (官方標準色名：綠色；本專案 UI 對應色：#10b981)
+ *   - 51-100: 普通 (官方標準色名：黃色；本專案 UI 對應色：#eab308)
+ *   - 101-150: 對敏感族群不健康 (官方標準色名：橘色；本專案 UI 對應色：#f97316)
+ *   - 151-200: 對所有族群不健康 (官方標準色名：紅色；本專案 UI 對應色：#ef4444)
+ *   - 201-300: 非常不健康 (官方標準色名：紫色；本專案 UI 對應色：#a855f7)
+ *   - 301-500: 危害 (官方標準色名：褐紅色；本專案 UI 對應色：#b91c1c)
+ *   (說明：各 Hex 色碼均為「本專案 UI 對應色 (project presentation color)」，非環境部官方公布之唯一絕對色碼規範)
  * - County-level maximum AQI aggregation (worst air quality) strictly within the same county,
  *   with deterministic tie-breaking on stationId
  * - Station filtering by county
@@ -39,14 +39,15 @@ export interface AqiCategoryInfo {
 }
 
 /**
- * Maps an AQI numeric value to official MOENV 6-tier classifications and project UI colors.
- * - 0-50: 良好 (綠色)
- * - 51-100: 普通 (黃色)
- * - 101-150: 對敏感族群不健康 (橘色)
- * - 151-200: 對所有族群不健康 (紅色)
- * - 201-300: 非常不健康 (紫色)
- * - 301-500: 危害 (褐紅色)
- * - null or invalid: 無資料 (灰色)
+ * Maps an AQI numeric value to official MOENV 6-tier classifications (官方標準分類名稱與級距)
+ * and project UI presentation colors (本專案 UI 對應色).
+ * - 0-50: 良好 (綠色, #10b981)
+ * - 51-100: 普通 (黃色, #eab308)
+ * - 101-150: 對敏感族群不健康 (橘色, #f97316)
+ * - 151-200: 對所有族群不健康 (紅色, #ef4444)
+ * - 201-300: 非常不健康 (紫色, #a855f7)
+ * - 301-500: 危害 (褐紅色, #b91c1c)
+ * - null or invalid: 無資料 (灰色, #94a3b8)
  */
 export function getAqiCategory(aqi: number | null | undefined): AqiCategoryInfo {
   if (aqi === null || aqi === undefined || !Number.isFinite(aqi) || aqi < 0) {

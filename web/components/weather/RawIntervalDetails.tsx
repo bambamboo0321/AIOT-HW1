@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { ForecastInterval } from "@/lib/contracts/weather";
 import { formatTaipeiDateTime } from "@/lib/transformations/daily";
+import { ClockIcon, ChevronDownIcon } from "@/components/ui/Icons";
 
 interface RawIntervalDetailsProps {
   intervals: readonly ForecastInterval[];
@@ -25,8 +26,11 @@ export function RawIntervalDetails({ intervals, region }: RawIntervalDetailsProp
         aria-expanded={isOpen}
       >
         <div className="accordion-title-group">
-          <span className="accordion-icon">{isOpen ? "▼" : "▶"}</span>
-          <h3 className="section-title">⏱️ 原始 12 小時預報區間檢視</h3>
+          <span className={`accordion-icon ${isOpen ? "is-open" : ""}`} aria-hidden="true">
+            <ChevronDownIcon size={16} />
+          </span>
+          <ClockIcon size={18} className="text-secondary" />
+          <h3 className="section-title">原始 12 小時預報區間檢視</h3>
           <span className="badge-pill">{intervals.length} 個區間</span>
         </div>
         <span className="accordion-action-hint">

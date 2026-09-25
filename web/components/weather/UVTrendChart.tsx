@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { UVForecastItem } from "@/lib/contracts/weather";
 import { classifyUV, getTaipeiTodayDateString } from "@/lib/transformations/uv";
 import { getTaipeiWeekday } from "@/lib/transformations/daily";
+import { SunIcon } from "@/components/ui/Icons";
 
 export interface UVTrendChartProps {
   dailyUvList: readonly UVForecastItem[];
@@ -27,7 +28,10 @@ export function UVTrendChart({
       <section className="dashboard-card chart-card" aria-label="每日 UV 趨勢圖">
         <div className="chart-header">
           <div>
-            <h3 className="section-title">☀️ 每日白天 UV 趨勢</h3>
+            <h3 className="section-title">
+              <SunIcon size={16} className="title-icon" />
+              <span>每日白天 UV 趨勢</span>
+            </h3>
             <span className="section-subtitle">{region} 每日白天 UV 預報・跨日變化走勢</span>
           </div>
         </div>
@@ -121,7 +125,13 @@ export function UVTrendChart({
       <div className="chart-header">
         <div>
           <div className="chart-title-group">
-            <h3 className="section-title">☀️ 每日白天 UV 趨勢</h3>
+            <h3 className="section-title">
+              <span className="sr-only">☀️ 每日白天 UV 趨勢</span>
+              <span aria-hidden="true" className="title-visual-group">
+                <SunIcon size={16} className="title-icon" />
+                <span>每日白天 UV 趨勢</span>
+              </span>
+            </h3>
             <span className="badge badge-semantic">每日白天 UV 預報</span>
           </div>
           <span className="section-subtitle">

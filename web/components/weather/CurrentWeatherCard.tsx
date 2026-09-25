@@ -7,6 +7,17 @@ import { filterStationsByCounty, findClosestStation } from "@/lib/transformation
 import { formatWindDirection } from "@/lib/transformations/wind";
 import { formatPrecipitation, getPrecipitationDescription } from "@/lib/transformations/precipitation";
 import { formatTaipeiDateTime } from "@/lib/transformations/daily";
+import {
+  ThermometerIcon,
+  DropletIcon,
+  WindIcon,
+  CompassIcon,
+  CloudRainIcon,
+  ClockIcon,
+  RadioIcon,
+  AlertTriangleIcon,
+  RefreshCwIcon,
+} from "@/components/ui/Icons";
 
 interface CurrentWeatherCardProps {
   region: string;
@@ -66,17 +77,21 @@ export function CurrentWeatherCard({
       <div className="current-header">
         <div className="current-title-area">
           <div className="current-badge-group">
-            <span className="badge badge-obs">📡 測站即時觀測</span>
+            <span className="badge badge-obs">
+              <RadioIcon size={13} className="badge-icon" />
+              <span>測站即時觀測</span>
+            </span>
             {isDelayed && (
               <span className="badge badge-warning" title="觀測資料時間距今已超過 30 分鐘">
-                ⚠️ 資料可能延遲
+                <AlertTriangleIcon size={13} className="badge-icon" />
+                <span>資料可能延遲</span>
               </span>
             )}
           </div>
           <h2 className="section-title">
-            {region} 即時天氣
+            <span className="nowrap">{region} 即時天氣</span>
             {activeStation && (
-              <span className="station-name-sub">
+              <span className="station-name-sub nowrap">
                 （{activeStation.stationName}
                 {activeStation.town ? `・${activeStation.town}` : ""}）
               </span>
@@ -124,13 +139,14 @@ export function CurrentWeatherCard({
         </div>
       ) : error ? (
         <div className="obs-error-state" role="alert">
-          <div className="obs-error-icon">⚠️</div>
+          <div className="obs-error-icon"><AlertTriangleIcon size={20} /></div>
           <div className="obs-error-content">
             <p className="obs-error-msg">{error}</p>
             <p className="obs-error-sub">七天預報功能不受影響，可點擊下方按鈕重試觀測資料。</p>
           </div>
           <button type="button" className="btn btn-secondary btn-retry" onClick={onRetry}>
-            🔄 重新載入觀測
+            <RefreshCwIcon size={14} className="btn-icon" />
+            <span>重新載入觀測</span>
           </button>
         </div>
       ) : !activeStation ? (
@@ -140,79 +156,128 @@ export function CurrentWeatherCard({
           </p>
         </div>
       ) : (
-        <div className="current-grid">
-          {/* 氣溫 */}
-          <div className="current-metric-card" data-testid="metric-temp">
-            <span className="metric-label">🌡️ 即時氣溫</span>
-            <span className="metric-value font-mono">
-              {activeStation.temperature !== null ? `${activeStation.temperature.toFixed(1)}°C` : "—"}
-            </span>
-            <span className="metric-desc">
-              測站海拔 {activeStation.elevation !== null ? `${Math.round(activeStation.elevation)} m` : "—"}
-            </span>
+        <div className="current-weather-body">
+          <div className="current-weather-main-row">
+            {/* 氣溫 Hero 焦點 (~40% on desktop): Large clean typography, frameless */}
+            <div className="current-temp-hero current-metric-hero" data-testid="metric-temp">
+              <span className="metric-label temp-hero-label">
+                <ThermometerIcon size={14} className="metric-icon" />
+                <span>即時氣溫</span>
+              </span>
+              <div className="temp-hero-number-wrap font-mono">
+                <span className="metric-value metric-temp-hero">
+                  {activeStation.temperature !== null ? `${activeStation.temperature.toFixed(1)}°` : "—"}
+                </span>
+                <span className="temp-hero-unit">C</span>
+              </div>
+              <div className="temp-hero-sub">
+                <span className="metric-desc">
+                  海拔 {activeStation.elevation !== null ? `${Math.round(activeStation.elevation)} m` : "—"}
+                </span>
+                <span className="temp-hero-dot" aria-hidden="true">•</span>
+                <span className="metric-desc">
+                  觀測 {activeStation.observedAt ? formatTaipeiDateTime(activeStation.observedAt).split(" ")[1] || formatTaipeiDateTime(activeStation.observedAt) : "—"}
+                </span>
+                {activeStation.town && (
+                  <>
+                    <span className="temp-hero-dot" aria-hidden="true">•</span>
+                    <span className="metric-desc">{activeStation.town}</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 次要指標 2×2 平面網格 (~60% on desktop)：相對濕度、風速、風向、當日降水量 */}
+            <div className="current-secondary-metrics current-secondary-metrics-grid">
+              {/* 相對濕度 (Row 1, Col 1) */}
+              <div className="current-metric-card" data-testid="metric-humidity">
+                <span className="metric-label">
+                  <DropletIcon size={14} className="metric-icon" />
+                  <span>相對濕度</span>
+                </span>
+                <span className="metric-value font-mono">
+                  {activeStation.relativeHumidity !== null ? `${Math.round(activeStation.relativeHumidity)}%` : "—"}
+                </span>
+                <span className="metric-desc">大氣水氣飽和度</span>
+              </div>
+
+              {/* 風速 (Row 1, Col 2) */}
+              <div className="current-metric-card" data-testid="metric-wind-speed">
+                <span className="metric-label">
+                  <WindIcon size={14} className="metric-icon" />
+                  <span>風速</span>
+                </span>
+                <span className="metric-value font-mono">
+                  {activeStation.windSpeed !== null ? `${activeStation.windSpeed.toFixed(1)} m/s` : "—"}
+                </span>
+                <span className="metric-desc">
+                  {activeStation.windSpeed === 0 ? "目前無風 (0 m/s)" : "即時平均風速"}
+                </span>
+              </div>
+
+              {/* 風向 (Row 2, Col 1) */}
+              <div className="current-metric-card" data-testid="metric-wind-dir">
+                <span className="metric-label">
+                  <CompassIcon size={14} className="metric-icon" />
+                  <span>風向</span>
+                </span>
+                <span className="metric-value font-mono">
+                  {formatWindDirection(activeStation.windDirection)}
+                </span>
+                <span className="metric-desc">
+                  {activeStation.windDirection === 990 ? "風向多變不定" : "8 方位標準羅盤"}
+                </span>
+              </div>
+
+              {/* 雨量 (Row 2, Col 2) */}
+              <div className="current-metric-card" data-testid="metric-rain">
+                <span className="metric-label">
+                  <CloudRainIcon size={14} className="metric-icon" />
+                  <span>當日降水量</span>
+                </span>
+                <span
+                  className={`metric-value font-mono ${
+                    activeStation.precipitationStatus === "none_6hr" ? "font-status" : ""
+                  }`}
+                >
+                  {formatPrecipitation(
+                    activeStation.dailyPrecipitation,
+                    activeStation.precipitationStatus
+                  )}
+                </span>
+                <span className="metric-desc">
+                  {getPrecipitationDescription(
+                    activeStation.dailyPrecipitation,
+                    activeStation.precipitationStatus
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* 相對濕度 */}
-          <div className="current-metric-card" data-testid="metric-humidity">
-            <span className="metric-label">💧 相對濕度</span>
-            <span className="metric-value font-mono">
-              {activeStation.relativeHumidity !== null ? `${Math.round(activeStation.relativeHumidity)}%` : "—"}
-            </span>
-            <span className="metric-desc">大氣水氣飽和度</span>
-          </div>
-
-          {/* 風速 */}
-          <div className="current-metric-card" data-testid="metric-wind-speed">
-            <span className="metric-label">💨 風速</span>
-            <span className="metric-value font-mono">
-              {activeStation.windSpeed !== null ? `${activeStation.windSpeed.toFixed(1)} m/s` : "—"}
-            </span>
-            <span className="metric-desc">
-              {activeStation.windSpeed === 0 ? "目前無風 (0 m/s)" : "即時平均風速"}
-            </span>
-          </div>
-
-          {/* 風向 */}
-          <div className="current-metric-card" data-testid="metric-wind-dir">
-            <span className="metric-label">🧭 風向</span>
-            <span className="metric-value font-mono">
-              {formatWindDirection(activeStation.windDirection)}
-            </span>
-            <span className="metric-desc">
-              {activeStation.windDirection === 990 ? "風向多變不定" : "8 方位標準羅盤"}
-            </span>
-          </div>
-
-          {/* 雨量 (官方精確標示：當日降水量) */}
-          <div className="current-metric-card" data-testid="metric-rain">
-            <span className="metric-label">🌧️ 當日降水量</span>
-            <span
-              className={`metric-value font-mono ${
-                activeStation.precipitationStatus === "none_6hr" ? "font-status" : ""
-              }`}
-            >
-              {formatPrecipitation(
-                activeStation.dailyPrecipitation,
-                activeStation.precipitationStatus
-              )}
-            </span>
-            <span className="metric-desc">
-              {getPrecipitationDescription(
-                activeStation.dailyPrecipitation,
-                activeStation.precipitationStatus
-              )}
-            </span>
-          </div>
-
-          {/* 觀測時間 */}
-          <div className="current-metric-card" data-testid="metric-time">
-            <span className="metric-label">🕒 觀測回傳時間</span>
-            <span className="metric-value font-mono font-time">
-              {formatTaipeiDateTime(activeStation.observedAt)}
-            </span>
-            <span className="metric-desc">
-              測站代碼：{activeStation.stationId}
-            </span>
+          {/* 底部觀測時間與測站代碼 metadata: Sleek single line, frameless */}
+          <div className="current-weather-metadata-row current-weather-footer-meta" data-testid="metric-time">
+            <div className="metadata-item">
+              <ClockIcon size={12} className="metadata-icon" />
+              <span className="metadata-label">觀測回傳時間：</span>
+              <span className="metadata-value font-mono font-time">
+                {formatTaipeiDateTime(activeStation.observedAt)}
+              </span>
+            </div>
+            <span className="metadata-separator" aria-hidden="true">•</span>
+            <div className="metadata-item">
+              <span className="metadata-label">測站代碼：</span>
+              <span className="metadata-value font-mono">{activeStation.stationId}</span>
+            </div>
+            {activeStation.town && (
+              <>
+                <span className="metadata-separator" aria-hidden="true">•</span>
+                <div className="metadata-item">
+                  <span className="metadata-label">行政區：</span>
+                  <span className="metadata-value">{activeStation.town}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

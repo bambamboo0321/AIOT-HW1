@@ -24,6 +24,12 @@ export type MapLayerId =
 
 export type MapLayerCategory = "forecast" | "cwa_obs" | "moenv_aqi";
 
+/**
+ * 圖例色碼說明：
+ * 本專案圖例與標記所使用之 Hex 色碼均為「本專案 UI 對應色 (project presentation color)」，
+ * 分類名稱與數值級距（如環境部 AQI 六級、氣象署 UV 五級等）遵循官方標準規範，
+ * 但特定 Hex 色值並非官方公布之唯一絕對色碼。
+ */
 export interface MapLegendItem {
   label: string;
   hex: string;
