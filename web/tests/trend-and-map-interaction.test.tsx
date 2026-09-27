@@ -305,7 +305,7 @@ describe("Milestone M9 Interactive Map - Switch Main Dashboard & Feedback", () =
     expect(onSelectRegion).toHaveBeenCalledWith("苗栗縣");
   });
 
-  it("ForecastDashboard end-to-end: starts at 臺北市, clicking 苗栗縣 in map updates selectedRegion, controls, and triggers smooth scrollIntoView", () => {
+  it("ForecastDashboard end-to-end: starts at 臺中市, clicking 苗栗縣 in map updates selectedRegion, controls, and triggers smooth scrollIntoView", () => {
     const scrollIntoViewMock = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoViewMock;
 
@@ -344,13 +344,13 @@ describe("Milestone M9 Interactive Map - Switch Main Dashboard & Feedback", () =
 
     const { container } = render(<ForecastDashboard initialData={mockData} />);
 
-    // 1. Initial region must be 臺北市
+    // 1. Initial region must be 臺中市
     const select = container.querySelector("#region-select") as HTMLSelectElement;
-    expect(select.value).toBe("臺北市");
+    expect(select.value).toBe("臺中市");
 
-    // KPI cards should show 臺北市
+    // KPI cards should show 臺中市
     const kpiSection = container.querySelector(".kpi-grid");
-    expect(kpiSection?.textContent).toContain("臺北市");
+    expect(kpiSection?.textContent).toContain("臺中市");
 
     // 2. Open Miaoli marker in map
     const miaoliMarker = container.querySelector('.map-badge[title*="苗栗縣"]')?.parentElement;

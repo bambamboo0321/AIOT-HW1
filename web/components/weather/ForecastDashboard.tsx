@@ -63,7 +63,8 @@ export function ForecastDashboard({
   const [isAlertsLoading, setIsAlertsLoading] = useState<boolean>(!initialAlerts);
   const [alertsError, setAlertsError] = useState<string | null>(null);
 
-  const [selectedRegionRaw, setSelectedRegion] = useState<string>("臺北市");
+  const DEFAULT_COUNTY = "臺中市";
+  const [selectedRegionRaw, setSelectedRegion] = useState<string>(DEFAULT_COUNTY);
   const [startDateRaw, setStartDate] = useState<string>("");
   const [endDateRaw, setEndDate] = useState<string>("");
   const [selectedUvDateRaw, setSelectedUvDateRaw] = useState<string>("");
@@ -288,9 +289,9 @@ export function ForecastDashboard({
 
   // Derive active selectedRegion
   const selectedRegion = useMemo(() => {
-    if (regions.length === 0) return "臺北市";
+    if (regions.length === 0) return DEFAULT_COUNTY;
     if (regions.includes(selectedRegionRaw)) return selectedRegionRaw;
-    return regions.includes("臺北市") ? "臺北市" : regions[0];
+    return regions.includes(DEFAULT_COUNTY) ? DEFAULT_COUNTY : regions[0];
   }, [regions, selectedRegionRaw]);
 
   // Representative station for selected region to derive current observations
@@ -336,7 +337,7 @@ export function ForecastDashboard({
       observedAt,
       dailyPrecipitation,
       shortTermPrecipitation: null,
-      currentWeatherPhenomenon: null,
+      currentWeatherPhenomenon: representativeStation?.currentWeatherPhenomenon ?? null,
       weatherAlertHeadline: alertHeadline,
       overrideScenario: previewOverride,
     });

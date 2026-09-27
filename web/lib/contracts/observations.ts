@@ -51,6 +51,8 @@ export interface NormalizedStationObservation {
    * - "fault": 儀器故障 (代碼 'X')
    */
   precipitationStatus: PrecipitationStatus;
+  /** 即時天氣現象（如「晴」、「多雲」、「陰」、「短暫陣雨」），缺測或無效為 null */
+  currentWeatherPhenomenon?: string | null;
 }
 
 export interface NormalizedObservationData {

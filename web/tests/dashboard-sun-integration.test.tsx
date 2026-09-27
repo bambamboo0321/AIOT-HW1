@@ -39,20 +39,19 @@ describe("M13.10.2 Full-Page Photographic Sun × Real Dashboard Integration", ()
     vi.restoreAllMocks();
   });
 
-  // ---- 1. Opt-in Guarantee ----
-  it("does NOT mount Sun overlay without sunDashboard=1 query parameter", () => {
+  // ---- 1. Automatic Activation Guarantee ----
+  it("automatically mounts Sun overlay for scenario='clear-day' without sunDashboard=1 query parameter", () => {
     window.history.pushState({}, "", "/?weatherPreview=clear-day");
     render(<WeatherAtmosphere scenario="clear-day" usePortal={false} />);
 
-    expect(screen.queryByTestId("dashboard-sun-back-canvas")).toBeNull();
-    expect(screen.queryByTestId("dashboard-sun-front-canvas")).toBeNull();
-    expect(screen.queryByTestId("dashboard-sun-hud")).toBeNull();
+    expect(screen.getByTestId("dashboard-sun-back-canvas")).toBeDefined();
+    expect(screen.getByTestId("dashboard-sun-front-canvas")).toBeDefined();
 
-    // Default static CSS sun elements remain present
-    expect(document.querySelector(".sun-rays-layer")).not.toBeNull();
+    // Replaced generic CSS sun elements
+    expect(document.querySelector(".sun-rays-layer")).toBeNull();
   });
 
-  it("mounts Sun overlay when scenario='clear-day' and sunDashboard=1", () => {
+  it("mounts Sun overlay when scenario='clear-day' and sunDashboard=1 (backward compatibility)", () => {
     window.history.pushState({}, "", "/?weatherPreview=clear-day&sunDashboard=1");
     render(<WeatherAtmosphere scenario="clear-day" usePortal={false} />);
 

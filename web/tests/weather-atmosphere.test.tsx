@@ -463,8 +463,8 @@ describe("Milestone M13.5: Weather Atmosphere Ambient Overlay", () => {
       const svg = container.querySelector("#refractive-rain-svg");
       expect(svg).toBeNull();
 
-      const standardTrails = container.querySelector(".rain-glass-trails");
-      expect(standardTrails).toBeTruthy();
+      const standardCanvas = container.querySelector("#dashboard-rain-canvas");
+      expect(standardCanvas).toBeTruthy();
 
       unmount();
     });
@@ -496,17 +496,14 @@ describe("Milestone M13.5: Weather Atmosphere Ambient Overlay", () => {
   });
 
   describe("Milestone M13.8 WebGL Rain Dashboard Integration Tests", () => {
-    it("does not mount WebGL rain canvas when rainDashboard=1 is absent", () => {
+    it("automatically mounts WebGL rain canvas when scenario is rain-day without rainDashboard=1", () => {
       window.history.pushState({}, "", "/?weatherPreview=rain-day");
       const { container, unmount } = render(
         <WeatherAtmosphere scenario="rain-day" usePortal={false} />
       );
 
       const canvas = container.querySelector("#dashboard-rain-canvas");
-      expect(canvas).toBeNull();
-
-      const trails = container.querySelector(".rain-glass-trails");
-      expect(trails).toBeTruthy();
+      expect(canvas).toBeTruthy();
 
       unmount();
     });
@@ -592,3 +589,198 @@ describe("Milestone M13.5: Weather Atmosphere Ambient Overlay", () => {
   });
 });
 
+// =============================================================================
+// M14 POST-CHECKPOINT — rain-night reuse of existing DashboardRainOverlay
+// =============================================================================
+describe("M14 rain-night DashboardRainOverlay reuse", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    window.history.pushState({}, "", "/");
+    document.body.innerHTML = "";
+    // Mock matchMedia for jsdom (mirrors top-level describe setup)
+    window.matchMedia = vi.fn().mockImplementation((query) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    window.history.pushState({}, "", "/");
+    document.getElementById("weather-portal-root")?.remove();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("rain-day enables existing rain overlay without rainDashboard flag", () => {
+    window.history.pushState({}, "", "/?weatherPreview=rain-day");
+    const { container, unmount } = render(
+      <WeatherAtmosphere scenario="rain-day" usePortal={false} />
+    );
+    expect(container.querySelector("#dashboard-rain-canvas")).toBeTruthy();
+    unmount();
+  });
+
+  it("rain-night enables SAME existing rain overlay without rainDashboard flag", () => {
+    window.history.pushState({}, "", "/?weatherPreview=rain-night");
+    const { container, unmount } = render(
+      <WeatherAtmosphere scenario="rain-night" usePortal={false} />
+    );
+    expect(container.querySelector("#dashboard-rain-canvas")).toBeTruthy();
+    unmount();
+  });
+
+  it("rain-night overlay has same pointer-events and zIndex as rain-day overlay", () => {
+    window.history.pushState({}, "", "/?weatherPreview=rain-night");
+    const { container, unmount } = render(
+      <WeatherAtmosphere scenario="rain-night" usePortal={false} />
+    );
+    const canvas = container.querySelector("#dashboard-rain-canvas") as HTMLCanvasElement;
+    expect(canvas).toBeTruthy();
+    expect(canvas.style.pointerEvents).toBe("none");
+    expect(canvas.style.position).toBe("fixed");
+    expect(canvas.style.zIndex).toBe("1");
+    unmount();
+  });
+
+  it("non-rain scenario (clear-day) does not enable rain overlay", () => {
+    window.history.pushState({}, "", "/?weatherPreview=clear-day");
+    const { container, unmount } = render(
+      <WeatherAtmosphere scenario="clear-day" usePortal={false} />
+    );
+    expect(container.querySelector("#dashboard-rain-canvas")).toBeNull();
+    unmount();
+  });
+
+  it("non-rain scenario (cloudy-day) does not enable rain overlay", () => {
+    window.history.pushState({}, "", "/?weatherPreview=cloudy-day");
+    const { container, unmount } = render(
+      <WeatherAtmosphere scenario="cloudy-day" usePortal={false} />
+    );
+    expect(container.querySelector("#dashboard-rain-canvas")).toBeNull();
+    unmount();
+  });
+
+  it("rain-night automatically mounts DashboardRainOverlay without rainDashboard=1", () => {
+    window.history.pushState({}, "", "/?weatherPreview=rain-night");
+    const { container, unmount } = render(
+      <WeatherAtmosphere scenario="rain-night" usePortal={false} />
+    );
+    expect(container.querySelector("#dashboard-rain-canvas")).toBeTruthy();
+    unmount();
+  });
+
+  it("clear-day automatically mounts DashboardSunOverlay without sunDashboard=1", () => {
+    window.history.pushState({}, "", "/?weatherPreview=clear-day");
+    const { container, unmount } = render(
+      <WeatherAtmosphere scenario="clear-day" usePortal={false} />
+    );
+    expect(container.querySelector("[data-testid='dashboard-sun-back-canvas']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='dashboard-sun-front-canvas']")).toBeTruthy();
+    unmount();
+  });
+
+  it("preserves preview/debug query parameter behavior with weatherDebug=1", () => {
+    window.history.pushState({}, "", "/?weatherPreview=rain-day&weatherDebug=1");
+    const { container, unmount } = render(
+      <WeatherAtmosphere scenario="rain-day" usePortal={false} />
+    );
+    expect(container.querySelector("#dashboard-rain-canvas")).toBeTruthy();
+    expect(container.querySelector("#dashboard-rain-hud")).toBeTruthy();
+    unmount();
+  });
+
+  it("passes correct backgroundPath to DashboardRainOverlay for rain-day and rain-night", () => {
+    // rain-day -> /images/weather/rain-day.webp
+    window.history.pushState({}, "", "/?weatherPreview=rain-day");
+    const { container: dayContainer, unmount: unmountDay } = render(
+      <WeatherAtmosphere scenario="rain-day" usePortal={false} />
+    );
+    const dayCanvas = dayContainer.querySelector("#dashboard-rain-canvas");
+    expect(dayCanvas?.getAttribute("data-background-path")).toBe("/images/weather/rain-day.webp");
+    unmountDay();
+
+    // rain-night -> /images/weather/rain-night.webp
+    window.history.pushState({}, "", "/?weatherPreview=rain-night");
+    const { container: nightContainer, unmount: unmountNight } = render(
+      <WeatherAtmosphere scenario="rain-night" usePortal={false} />
+    );
+    const nightCanvas = nightContainer.querySelector("#dashboard-rain-canvas");
+    expect(nightCanvas?.getAttribute("data-background-path")).toBe("/images/weather/rain-night.webp");
+    unmountNight();
+  });
+
+  describe("Milestone Final Visual Cleanup — Obsolete CSS Atmosphere Removal & Default County", () => {
+    it("proves default county is 臺中市 in ForecastDashboard", () => {
+      const mockForecast = createMockForecast();
+      const { container, unmount } = render(<ForecastDashboard initialData={mockForecast} />);
+      const select = container.querySelector("#region-select") as HTMLSelectElement;
+      expect(select.value).toBe("臺中市");
+      const kpiGrid = container.querySelector(".kpi-grid");
+      expect(kpiGrid?.textContent).toContain("臺中市");
+      unmount();
+    });
+
+    it("proves clear-day mounts DashboardSunOverlay and does NOT render obsolete CSS atmosphere elements", () => {
+      window.history.pushState({}, "", "/?weatherPreview=clear-day");
+      const { container, unmount } = render(
+        <WeatherAtmosphere scenario="clear-day" usePortal={false} />
+      );
+      expect(container.querySelector("[data-testid='dashboard-sun-back-canvas']")).toBeTruthy();
+      expect(container.querySelector("[data-testid='dashboard-sun-front-canvas']")).toBeTruthy();
+      expect(container.querySelector(".sun-rays-layer")).toBeNull();
+      expect(container.querySelector(".sun-flare-orbs")).toBeNull();
+      expect(container.querySelector("#weather-foreground-layer")).toBeNull();
+      expect(container.querySelector(".rain-glass-trails")).toBeNull();
+      expect(container.querySelector("#dashboard-rain-canvas")).toBeNull();
+      unmount();
+    });
+
+    it("proves rain-day mounts DashboardRainOverlay and does NOT render obsolete CSS rain/atmosphere elements", () => {
+      window.history.pushState({}, "", "/?weatherPreview=rain-day");
+      const { container, unmount } = render(
+        <WeatherAtmosphere scenario="rain-day" usePortal={false} />
+      );
+      expect(container.querySelector("#dashboard-rain-canvas")).toBeTruthy();
+      expect(container.querySelector(".rain-glass-trails")).toBeNull();
+      expect(container.querySelector(".sun-rays-layer")).toBeNull();
+      expect(container.querySelector(".sun-flare-orbs")).toBeNull();
+      expect(container.querySelector("#weather-foreground-layer")).toBeNull();
+      unmount();
+    });
+
+    it("proves rain-night mounts DashboardRainOverlay and does NOT render obsolete CSS rain/atmosphere elements", () => {
+      window.history.pushState({}, "", "/?weatherPreview=rain-night");
+      const { container, unmount } = render(
+        <WeatherAtmosphere scenario="rain-night" usePortal={false} />
+      );
+      expect(container.querySelector("#dashboard-rain-canvas")).toBeTruthy();
+      expect(container.querySelector(".rain-glass-trails")).toBeNull();
+      expect(container.querySelector(".sun-rays-layer")).toBeNull();
+      expect(container.querySelector(".sun-flare-orbs")).toBeNull();
+      expect(container.querySelector("#weather-foreground-layer")).toBeNull();
+      unmount();
+    });
+
+    it("proves non-rain scenarios do not render rain particles or obsolete layers", () => {
+      const nonRainScenarios = ["cloudy-day", "cloudy-night", "clear-night", "dawn", "sunset", "default"] as const;
+      for (const sc of nonRainScenarios) {
+        window.history.pushState({}, "", `/?weatherPreview=${sc}`);
+        const { container, unmount } = render(
+          <WeatherAtmosphere scenario={sc} usePortal={false} />
+        );
+        expect(container.querySelector("#dashboard-rain-canvas")).toBeNull();
+        expect(container.querySelector(".rain-glass-trails")).toBeNull();
+        expect(container.querySelector(".sun-rays-layer")).toBeNull();
+        expect(container.querySelector(".sun-flare-orbs")).toBeNull();
+        expect(container.querySelector("#weather-foreground-layer")).toBeNull();
+        unmount();
+      }
+    });
+  });
+});

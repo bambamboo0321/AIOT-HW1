@@ -382,4 +382,83 @@ describe("Milestone M13.4: Dynamic Weather Scenario Background System", () => {
       expect(fs.existsSync(duplicateClearDayPath)).toBe(false);
     });
   });
+
+  describe("Final Integration: currentWeatherPhenomenon to Scenario Resolution", () => {
+    it("resolves clear phenomenon to clear-day in daytime and clear-night at night", () => {
+      // Daytime 10:00 + "晴" -> clear-day
+      const dayResult = resolveWeatherBackground({
+        observedAt: "2026-09-27T10:00:00+08:00",
+        currentWeatherPhenomenon: "晴",
+      });
+      expect(dayResult.backgroundKey).toBe("clear-day");
+      expect(dayResult.assetPath).toBe("/images/weather-bg.webp");
+
+      // Night 22:00 + "晴朗" -> clear-night
+      const nightResult = resolveWeatherBackground({
+        observedAt: "2026-09-27T22:00:00+08:00",
+        currentWeatherPhenomenon: "晴朗",
+      });
+      expect(nightResult.backgroundKey).toBe("clear-night");
+      expect(nightResult.assetPath).toBe("/images/weather/clear-night.webp");
+    });
+
+    it("resolves cloudy phenomenon to cloudy-day in daytime and cloudy-night at night", () => {
+      // Daytime 14:00 + "多雲" -> cloudy-day
+      const dayResult = resolveWeatherBackground({
+        observedAt: "2026-09-27T14:00:00+08:00",
+        currentWeatherPhenomenon: "多雲",
+      });
+      expect(dayResult.backgroundKey).toBe("cloudy-day");
+      expect(dayResult.assetPath).toBe("/images/weather/cloudy-day.webp");
+
+      // Daytime 14:00 + "陰" -> cloudy-day
+      const dayOvercastResult = resolveWeatherBackground({
+        observedAt: "2026-09-27T14:00:00+08:00",
+        currentWeatherPhenomenon: "陰",
+      });
+      expect(dayOvercastResult.backgroundKey).toBe("cloudy-day");
+
+      // Night 21:00 + "多雲" -> cloudy-night
+      const nightResult = resolveWeatherBackground({
+        observedAt: "2026-09-27T21:00:00+08:00",
+        currentWeatherPhenomenon: "多雲",
+      });
+      expect(nightResult.backgroundKey).toBe("cloudy-night");
+      expect(nightResult.assetPath).toBe("/images/weather/cloudy-night.webp");
+    });
+
+    it("resolves rain phenomenon to rain-day in daytime and rain-night at night", () => {
+      // Daytime 11:00 + "短暫陣雨" -> rain-day
+      const dayResult = resolveWeatherBackground({
+        observedAt: "2026-09-27T11:00:00+08:00",
+        currentWeatherPhenomenon: "短暫陣雨",
+      });
+      expect(dayResult.backgroundKey).toBe("rain-day");
+      expect(dayResult.assetPath).toBe("/images/weather/rain-day.webp");
+
+      // Night 23:00 + "雷雨" -> rain-night
+      const nightResult = resolveWeatherBackground({
+        observedAt: "2026-09-27T23:00:00+08:00",
+        currentWeatherPhenomenon: "雷雨",
+      });
+      expect(nightResult.backgroundKey).toBe("rain-night");
+      expect(nightResult.assetPath).toBe("/images/weather/rain-night.webp");
+    });
+
+    it("safely falls back to neutral time-based scenario when currentWeatherPhenomenon is null", () => {
+      // Dawn (05:30) with null phenomenon
+      const dawnResult = resolveWeatherBackground({
+        observedAt: "2026-09-27T05:30:00+08:00",
+        currentWeatherPhenomenon: null,
+      });
+      expect(dawnResult.backgroundKey).toBe("dawn");
+
+      // Sunset (17:40) with null phenomenon
+      const sunsetResult = resolveWeatherBackground({
+        observedAt: "2026-09-27T17:40:00+08:00",
+        currentWeatherPhenomenon: null,
+      });
+      expect(sunsetResult.backgroundKey).toBe("sunset");
+    });
+  });
 });

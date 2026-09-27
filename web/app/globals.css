@@ -173,21 +173,23 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  display: none !important;
+  animation: none !important;
   opacity: 0;
   transition: opacity 1200ms ease;
   will-change: opacity, transform;
 }
 
-/* Layer 4: Foreground Weather Layer (Glass droplets, near-field atmosphere, non-blocking) */
+/* Layer 4: Foreground Weather Layer (Disabled / Replaced by WebGL Overlays) */
 .weather-foreground-layer {
+  display: none !important;
   position: fixed;
   inset: 0;
   z-index: 4;
   pointer-events: none;
   overflow: hidden;
   contain: strict;
-  opacity: 1;
-  transition: opacity 1000ms ease-in-out;
+  opacity: 0;
 }
 
 .weather-foreground-layer::before,
@@ -298,31 +300,13 @@ body {
   transform-origin: 20% 0%;
 }
 
-/* Volumetric Sun Rays (Crepuscular Rays) fanning across the sky */
-.atmosphere--clear-day .sun-rays-layer {
-  position: absolute;
-  inset: -15% -10% -15% -10%;
-  width: 130%;
-  height: 130%;
+/* Volumetric Sun Rays (Crepuscular Rays) - Legacy CSS removed */
+.atmosphere--clear-day .sun-rays-layer,
+.sun-rays-layer,
+.sun-flare-orbs,
+.rain-glass-trails {
+  display: none !important;
   pointer-events: none;
-  opacity: calc(0.38 + var(--sun-spread, 0) * 0.52);
-  background: conic-gradient(
-    from calc(112deg + var(--sun-rays-angle, 0deg)) at calc(20% + var(--weather-pointer-x, 0) * 18px) calc(0% + var(--weather-pointer-y, 0) * 12px),
-    transparent 0deg,
-    rgba(255, 252, 235, 0.24) 8deg,
-    rgba(255, 245, 210, 0.05) 16deg,
-    transparent 24deg,
-    rgba(255, 250, 225, 0.32) 34deg,
-    rgba(255, 240, 190, 0.06) 45deg,
-    transparent 55deg,
-    rgba(255, 246, 215, 0.28) 66deg,
-    rgba(255, 235, 185, 0.04) 78deg,
-    transparent 90deg
-  );
-  mask-image: radial-gradient(ellipse 95% 85% at 20% 0%, black 15%, rgba(0, 0, 0, 0.55) 55%, transparent 88%);
-  -webkit-mask-image: radial-gradient(ellipse 95% 85% at 20% 0%, black 15%, rgba(0, 0, 0, 0.55) 55%, transparent 88%);
-  transform: scale(calc(0.85 + var(--sun-spread, 0) * 0.28)) rotate(calc(var(--sun-spread, 0) * 5deg));
-  transform-origin: 20% 0%;
 }
 
 .atmosphere-fg--clear-day::before {

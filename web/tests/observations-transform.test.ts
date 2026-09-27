@@ -7,6 +7,7 @@ import {
   parseWindDirection,
   parseElevation,
   parsePrecipitation,
+  parseWeatherPhenomenon,
 } from "@/lib/server/cwa-observation-client";
 import {
   getWind8Direction,
@@ -88,6 +89,7 @@ describe("Milestone M10: Observation Normalization & Element Semantics", () => {
     expect(s.windDirection).toBe(135.0);
     expect(s.dailyPrecipitation).toBe(15.5);
     expect(s.precipitationStatus).toBe("normal");
+    expect(s.currentWeatherPhenomenon).toBeNull();
   });
 
   // Test 2: Precipitation special value parsing: normal, 0.0, T, -98, -99, X
@@ -319,5 +321,76 @@ describe("Milestone M10: Observation Normalization & Element Semantics", () => {
     expect(closest).not.toBeNull();
     expect(closest?.stationId).toBe("A2");
     expect(closest?.stationName).toBe("苗栗市站");
+  });
+
+  describe("Task 1 & 2: O-A0003-001 Weather phenomenon parsing", () => {
+    it("parses valid weather phenomenon and safely trims strings", () => {
+      expect(parseWeatherPhenomenon("陰")).toBe("陰");
+      expect(parseWeatherPhenomenon("  短暫陣雨  ")).toBe("短暫陣雨");
+      expect(parseWeatherPhenomenon("多雲時晴")).toBe("多雲時晴");
+      expect(parseWeatherPhenomenon("晴")).toBe("晴");
+      expect(parseWeatherPhenomenon("  雷雨  ")).toBe("雷雨");
+    });
+
+    it("exposes null for missing, empty, or invalid weather values", () => {
+      expect(parseWeatherPhenomenon(null)).toBeNull();
+      expect(parseWeatherPhenomenon(undefined)).toBeNull();
+      expect(parseWeatherPhenomenon("")).toBeNull();
+      expect(parseWeatherPhenomenon("   ")).toBeNull();
+      expect(parseWeatherPhenomenon("-99")).toBeNull();
+      expect(parseWeatherPhenomenon("-99.0")).toBeNull();
+      expect(parseWeatherPhenomenon("-98")).toBeNull();
+      expect(parseWeatherPhenomenon("N/A")).toBeNull();
+      expect(parseWeatherPhenomenon("NAN")).toBeNull();
+      expect(parseWeatherPhenomenon("X")).toBeNull();
+      expect(parseWeatherPhenomenon("-")).toBeNull();
+      expect(parseWeatherPhenomenon(123)).toBeNull();
+    });
+
+    it("parses Weather field into currentWeatherPhenomenon during normalizeCwaObservations", () => {
+      const fixtureWithWeather = {
+        records: {
+          Station: [
+            {
+              StationId: "TEST01",
+              StationName: "測試測站",
+              ObsTime: { DateTime: "2026-09-27T14:00:00+08:00" },
+              GeoInfo: {
+                CountyName: "臺北市",
+                Coordinates: [{ CoordinateName: "TWD97", StationLatitude: "25.03", StationLongitude: "121.51" }],
+              },
+              WeatherElement: {
+                Weather: "  短暫陣雨  ",
+              },
+            },
+          ],
+        },
+      };
+      const res = normalizeCwaObservations(fixtureWithWeather);
+      expect(res.stations[0].currentWeatherPhenomenon).toBe("短暫陣雨");
+    });
+
+    it("exposes null when Weather element is absent or invalid during normalizeCwaObservations", () => {
+      const fixtureWithoutWeather = {
+        records: {
+          Station: [
+            {
+              StationId: "TEST02",
+              StationName: "測試測站2",
+              ObsTime: { DateTime: "2026-09-27T14:00:00+08:00" },
+              GeoInfo: {
+                CountyName: "臺北市",
+                Coordinates: [{ CoordinateName: "TWD97", StationLatitude: "25.03", StationLongitude: "121.51" }],
+              },
+              WeatherElement: {
+                Weather: "-99",
+              },
+            },
+          ],
+        },
+      };
+      const res = normalizeCwaObservations(fixtureWithoutWeather);
+      expect(res.stations[0].currentWeatherPhenomenon).toBeNull();
+    });
   });
 });

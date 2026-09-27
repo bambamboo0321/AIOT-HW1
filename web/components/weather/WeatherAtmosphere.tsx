@@ -2,7 +2,7 @@
 
 import React, { useEffect, useSyncExternalStore, useRef } from "react";
 import { createPortal } from "react-dom";
-import { WeatherScenarioKey } from "@/lib/theme/background-assets";
+import { WeatherScenarioKey, WEATHER_SCENARIOS } from "@/lib/theme/background-assets";
 import { RefractiveRaindropPrototype } from "./RefractiveRaindropPrototype";
 import { DashboardRainOverlay } from "./DashboardRainOverlay";
 import { DashboardSunOverlay } from "./sun/DashboardSunOverlay";
@@ -78,28 +78,6 @@ function getRainPrototypeSnapshot(): boolean {
   }
 }
 
-function getRainDashboardSnapshot(): boolean {
-  if (typeof window === "undefined") return false;
-  if (process.env.NODE_ENV === "production") return false;
-  try {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("rainDashboard") === "1";
-  } catch {
-    return false;
-  }
-}
-
-function getSunDashboardSnapshot(): boolean {
-  if (typeof window === "undefined") return false;
-  if (process.env.NODE_ENV === "production") return false;
-  try {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("sunDashboard") === "1";
-  } catch {
-    return false;
-  }
-}
-
 function getServerDebugSnapshot(): boolean {
   return false;
 }
@@ -149,18 +127,6 @@ export function WeatherAtmosphere({
   const isRainPrototype = useSyncExternalStore(
     subscribeDebug,
     getRainPrototypeSnapshot,
-    getServerDebugSnapshot
-  );
-
-  const isRainDashboard = useSyncExternalStore(
-    subscribeDebug,
-    getRainDashboardSnapshot,
-    getServerDebugSnapshot
-  );
-
-  const isSunDashboard = useSyncExternalStore(
-    subscribeDebug,
-    getSunDashboardSnapshot,
     getServerDebugSnapshot
   );
   const hudRef = useRef<HTMLDivElement | null>(null);
@@ -320,62 +286,36 @@ export function WeatherAtmosphere({
       ? clientRoot
       : null;
 
-  const isRainActive = scenario === "rain-day";
-  const isSunActive = scenario === "clear-day" && isSunDashboard;
-  const effectiveScenario =
-    isRainActive && isRainDashboard
-      ? "default"
-      : isSunActive
-      ? "default"
-      : scenario;
+  const isRainActive = scenario === "rain-day" || scenario === "rain-night";
+  const isSunActive = scenario === "clear-day";
 
   const element = (
     <>
       <div
         id="weather-atmosphere-layer"
-        className={`weather-atmosphere-layer atmosphere--${effectiveScenario}${isPaused ? " animation-paused" : ""}`}
+        className={`weather-atmosphere-layer atmosphere--${scenario}${isPaused ? " animation-paused" : ""}`}
         aria-hidden="true"
         data-scenario={scenario}
         data-testid="weather-atmosphere-layer"
         data-paused={isPaused ? "true" : "false"}
-      >
-        {scenario === "clear-day" && !isSunActive && (
-          <div className="sun-rays-layer" aria-hidden="true" />
-        )}
-      </div>
-      <div
-        id="weather-foreground-layer"
-        className={`weather-foreground-layer atmosphere-fg--${effectiveScenario}${isPaused ? " animation-paused" : ""}`}
-        aria-hidden="true"
-        data-scenario={scenario}
-        data-testid="weather-foreground-layer"
-        data-paused={isPaused ? "true" : "false"}
-      >
-        {isRainActive && !isRainPrototype && !isRainDashboard && (
-          <div className="rain-glass-trails" aria-hidden="true">
-            <div className="rain-streak streak-1" />
-            <div className="rain-streak streak-2" />
-            <div className="rain-streak streak-3" />
-          </div>
-        )}
-        {scenario === "clear-day" && !isSunActive && (
-          <div className="sun-flare-orbs" aria-hidden="true">
-            <div className="flare-orb orb-1" />
-            <div className="flare-orb orb-2" />
-          </div>
-        )}
-      </div>
-      {isRainActive && isRainDashboard && (
-        <DashboardRainOverlay showDebug={showDebug} />
+      />
+      {isRainActive && !isRainPrototype && (
+        <DashboardRainOverlay
+          showDebug={showDebug}
+          backgroundPath={
+            WEATHER_SCENARIOS[scenario as WeatherScenarioKey]?.assetPath ??
+            "/images/weather/rain-day.webp"
+          }
+        />
       )}
-      {isRainActive && isRainPrototype && !isRainDashboard && (
+      {isRainActive && isRainPrototype && (
         <RefractiveRaindropPrototype showDebug={showDebug} />
       )}
       {isSunActive && (
         <DashboardSunOverlay showDebug={showDebug} />
       )}
       {showDebug &&
-        !(isRainActive && (isRainPrototype || isRainDashboard)) &&
+        !isRainActive &&
         !isSunActive && (
         <div
           ref={hudRef}

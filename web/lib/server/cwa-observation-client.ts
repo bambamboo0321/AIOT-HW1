@@ -175,6 +175,29 @@ export function parsePrecipitation(val: unknown): ParsedPrecipitationResult {
   return { value: num, status: "normal" };
 }
 
+/**
+ * Parses current weather phenomenon (WeatherElement.Weather).
+ * Trims non-empty string; exposes null for missing/empty/invalid values.
+ */
+export function parseWeatherPhenomenon(val: unknown): string | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val !== "string") return null;
+  const str = val.trim();
+  if (
+    str === "" ||
+    str === "-99" ||
+    str === "-99.0" ||
+    str === "-98" ||
+    str === "N/A" ||
+    str === "NAN" ||
+    str === "X" ||
+    str === "-"
+  ) {
+    return null;
+  }
+  return str;
+}
+
 interface RawCoordinate {
   CoordinateName?: string;
   StationLatitude?: string | number;
@@ -194,6 +217,7 @@ interface RawStation {
     Coordinates?: RawCoordinate[];
   };
   WeatherElement?: {
+    Weather?: string;
     AirTemperature?: string | number;
     RelativeHumidity?: string | number;
     WindSpeed?: string | number;
@@ -298,6 +322,9 @@ export function normalizeCwaObservations(
     // Precipitation (Now.Precipitation - 當日降水量)
     const precipResult = parsePrecipitation(we.Now?.Precipitation);
 
+    // Weather phenomenon (Weather - 即時天氣現象)
+    const currentWeatherPhenomenon = parseWeatherPhenomenon(we.Weather);
+
     stations.push({
       stationId,
       stationName,
@@ -313,6 +340,7 @@ export function normalizeCwaObservations(
       windDirection,
       dailyPrecipitation: precipResult.value,
       precipitationStatus: precipResult.status,
+      currentWeatherPhenomenon,
     });
   }
 

@@ -2,10 +2,9 @@
 
 import React, { useEffect, useRef, useState } from "react";
 
-const RAIN_BACKGROUND_PATH = "/images/weather/rain-day.webp";
-
 export interface DashboardRainOverlayProps {
   showDebug?: boolean;
+  backgroundPath: string;
 }
 
 /**
@@ -28,7 +27,7 @@ export interface DashboardRainOverlayProps {
  * - Visibility: Automatically pauses when document.visibilityState is "hidden".
  * - Reduced Motion: Halts continuous physics, preserving calm static wet-glass texture.
  */
-export function DashboardRainOverlay({ showDebug = false }: DashboardRainOverlayProps) {
+export function DashboardRainOverlay({ showDebug = false, backgroundPath }: DashboardRainOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fxRef = useRef<any>(null);
@@ -79,7 +78,7 @@ export function DashboardRainOverlay({ showDebug = false }: DashboardRainOverlay
 
         fxInstance = new RaindropFXClass({
           canvas: canvas,
-          background: RAIN_BACKGROUND_PATH,
+          background: backgroundPath,
           spawnSize: [minSpawn, maxSpawn],
           spawnInterval: [0.7, 1.6],
           spawnLimit: 400,
@@ -202,7 +201,8 @@ export function DashboardRainOverlay({ showDebug = false }: DashboardRainOverlay
       }
       fxRef.current = null;
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // backgroundPath captured at mount; raindrop-fx cannot be re-initialized mid-lifecycle
 
   return (
     <>
@@ -211,6 +211,7 @@ export function DashboardRainOverlay({ showDebug = false }: DashboardRainOverlay
         ref={canvasRef}
         id="dashboard-rain-canvas"
         data-testid="dashboard-rain-canvas"
+        data-background-path={backgroundPath}
         aria-hidden="true"
         style={{
           position: "fixed",
