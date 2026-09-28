@@ -234,13 +234,13 @@ describe("Milestone M11: GET /api/air-quality Route, UI Labels & Resilience", ()
       fetchedAt: "2026-09-24T01:00:00.000Z",
       stations: [
         {
-          stationId: "466920",
-          stationName: "臺北",
-          county: "臺北市",
-          town: "中正區",
-          latitude: 25.037,
-          longitude: 121.514,
-          elevation: 5.3,
+          stationId: "467490",
+          stationName: "臺中",
+          county: "臺中市",
+          town: "西區",
+          latitude: 24.145,
+          longitude: 120.684,
+          elevation: 77.0,
           observedAt: "2026-09-24T09:00:00+08:00",
           temperature: 28.0,
           relativeHumidity: 70,
@@ -278,7 +278,7 @@ describe("Milestone M11: GET /api/air-quality Route, UI Labels & Resilience", ()
 
     // Seven-day forecast, KPI cards, trend chart, and current weather card remain intact
     expect(dashboardHtml).toContain("Taiwan Weather Dashboard");
-    expect(dashboardHtml).toContain("臺北市 即時天氣");
+    expect(dashboardHtml).toContain("臺中市 即時天氣");
     expect(dashboardHtml).toContain("氣溫趨勢變化");
     expect(dashboardHtml).toContain("F-D0047-091");
   });

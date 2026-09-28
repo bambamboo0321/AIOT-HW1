@@ -62,13 +62,13 @@ function createMockObservations(): NormalizedObservationData {
     fetchedAt: "2026-09-24T12:00:00.000Z",
     stations: [
       {
-        stationId: "466920",
-        stationName: "臺北",
-        county: "臺北市",
-        town: "中正區",
-        latitude: 25.0375,
-        longitude: 121.5149,
-        elevation: 6.0,
+        stationId: "467490",
+        stationName: "臺中",
+        county: "臺中市",
+        town: "西區",
+        latitude: 24.145,
+        longitude: 120.684,
+        elevation: 77.0,
         observedAt: "2026-09-24T12:00:00+08:00",
         temperature: 28.4,
         relativeHumidity: 65,
@@ -89,10 +89,10 @@ function createMockAirQuality(): NormalizedAirQualityData {
     stations: [
       {
         stationId: "1",
-        stationName: "萬華",
-        county: "臺北市",
-        latitude: 25.0465,
-        longitude: 121.5079,
+        stationName: "西屯",
+        county: "臺中市",
+        latitude: 24.16,
+        longitude: 120.62,
         publishedAt: "2026-09-24 12:00",
         aqi: 45,
         status: "良好",
@@ -299,8 +299,8 @@ describe("Milestone M13.1: Calm Weather Intelligence Visual & Information Hierar
       />
     );
 
-    expect(html).toContain('aria-label="臺北市 即時天氣觀測"');
-    expect(html).toContain('aria-label="臺北市 空氣品質監測"');
+    expect(html).toContain('aria-label="臺中市 即時天氣觀測"');
+    expect(html).toContain('aria-label="臺中市 空氣品質監測"');
     expect(html).toContain('aria-label="紫外線指數預報"');
     expect(html).toContain('aria-label="未來 7 日氣溫"');
   });

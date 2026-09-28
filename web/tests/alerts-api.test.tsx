@@ -276,13 +276,13 @@ describe("Milestone M12: Canonical W-C0033-002 Alerts Route, Client & UI", () =>
         fetchedAt: "2026-09-24T01:00:00.000Z",
         stations: [
           {
-            stationId: "466920",
-            stationName: "臺北",
-            county: "臺北市",
-            town: "中正區",
-            latitude: 25.037,
-            longitude: 121.514,
-            elevation: 5.3,
+            stationId: "467490",
+            stationName: "臺中",
+            county: "臺中市",
+            town: "西區",
+            latitude: 24.145,
+            longitude: 120.684,
+            elevation: 77.0,
             observedAt: "2026-09-24T09:00:00+08:00",
             temperature: 28.5,
             relativeHumidity: 65,
@@ -313,7 +313,7 @@ describe("Milestone M12: Canonical W-C0033-002 Alerts Route, Client & UI", () =>
       // Verify all sections render properly
       expect(html).toContain("Taiwan Weather Dashboard");
       expect(html).toContain("目前無有效天氣警特報");
-      expect(html).toContain("臺北市 即時天氣");
+      expect(html).toContain("臺中市 即時天氣");
       expect(html).toContain("空氣品質監測");
       expect(html).toContain("紫外線指數預報");
       expect(html).toContain("白天 UV 預報");

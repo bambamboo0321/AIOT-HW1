@@ -289,9 +289,9 @@ describe("Milestone M13.1: Unified 7-Day Temperature Forecast Section", () => {
       />
     );
 
-    // Initial render: default region is 臺北市
+    // Initial render: default region is 臺中市
     const regionSelect = screen.getByLabelText("預報縣市") as HTMLSelectElement;
-    expect(regionSelect.value).toBe("臺北市");
+    expect(regionSelect.value).toBe("臺中市");
 
     // No API calls on mount with initialData
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -307,14 +307,14 @@ describe("Milestone M13.1: Unified 7-Day Temperature Forecast Section", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
 
     // Verify selectedRegion is unchanged
-    expect(regionSelect.value).toBe("臺北市");
+    expect(regionSelect.value).toBe("臺中市");
 
     // Switch back to 趨勢圖
     const chartTab = screen.getByTestId("temp-view-tab-chart");
     fireEvent.click(chartTab);
     expect(screen.getByTestId("temp-tabpanel-chart")).toBeDefined();
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(regionSelect.value).toBe("臺北市");
+    expect(regionSelect.value).toBe("臺中市");
 
     fetchSpy.mockRestore();
   });

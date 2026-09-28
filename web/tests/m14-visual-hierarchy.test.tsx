@@ -65,13 +65,13 @@ function createMockObservations(): NormalizedObservationData {
     fetchedAt: "2026-09-25T12:00:00.000Z",
     stations: [
       {
-        stationId: "466920",
-        stationName: "臺北",
-        county: "臺北市",
-        town: "中正區",
-        latitude: 25.037,
-        longitude: 121.514,
-        elevation: 5.3,
+        stationId: "467490",
+        stationName: "臺中",
+        county: "臺中市",
+        town: "西區",
+        latitude: 24.145,
+        longitude: 120.684,
+        elevation: 77.0,
         observedAt: "2026-09-25T18:00:00+08:00",
         temperature: 26.2,
         relativeHumidity: 81,
@@ -91,10 +91,10 @@ function createMockAirQuality(): NormalizedAirQualityData {
     stations: [
       {
         stationId: "1",
-        stationName: "士林",
-        county: "臺北市",
-        latitude: 25.09,
-        longitude: 121.52,
+        stationName: "西屯",
+        county: "臺中市",
+        latitude: 24.16,
+        longitude: 120.62,
         aqi: 42,
         status: "良好",
         pm25: 11,
@@ -108,12 +108,12 @@ function createMockAirQuality(): NormalizedAirQualityData {
       },
     ],
     countySummaries: {
-      臺北市: {
-        county: "臺北市",
+      臺中市: {
+        county: "臺中市",
         maxAqi: 42,
         sourceStationId: "1",
-        sourceStationName: "士林",
-        sourceStationCounty: "臺北市",
+        sourceStationName: "西屯",
+        sourceStationCounty: "臺中市",
         status: "良好",
         primaryPollutant: null,
         pm25: 11,
