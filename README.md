@@ -8,7 +8,7 @@
 
 An interactive environmental dashboard visualizing real-time meteorological observations, 7-day regional forecasts, ultraviolet radiation levels, air quality metrics, and active weather alerts across all 22 administrative divisions of Taiwan. Built on a stateless serverless architecture, the dashboard integrates official open data from Taiwan's Central Weather Administration (CWA) and Ministry of Environment (MOENV) with custom WebGL optical atmosphere overlays and interactive geospatial layers.
 
-- [Live Demo](https://weather-jaso1291p-bambambooo.vercel.app)
+- [Live Demo](https://weather-web-eight-khaki.vercel.app)
 - [GitHub Repository](https://github.com/bambamboo0321/AIOT-HW1)
 
 ---
